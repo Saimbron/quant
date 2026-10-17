@@ -1,0 +1,14 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const { Browser } = await import(pathToFileURL(join(homedir(), '.agents/skills/design-taste-frontend/scripts/lib/cdp.mjs')).href);
+const [url, out, w = 1440, scheme = 'light'] = process.argv.slice(2);
+const b = await Browser.launch();
+const p = await b.newPage({ width: +w, height: 900 });
+await p.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] });
+await p.goto(url, { settleMs: 1500 });
+await p.wheel(9000); await p.wheel(-9000, { step: 2000, pauseMs: 10 });
+await p.eval(() => document.querySelectorAll('[data-reveal]').forEach((e) => e.classList.add('is-in')));
+await new Promise((r) => setTimeout(r, 1200));
+await p.screenshot({ path: out, fullPage: true, quality: 60 });
+await b.close();

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.astro/
+.taste-skill/
+.tools/shots/
+.tools/cand/
+.tools/ref/

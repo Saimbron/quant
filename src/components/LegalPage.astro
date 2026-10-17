@@ -1,0 +1,57 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from './Header.astro';
+import Footer from './Footer.astro';
+import { T, ROUTES } from '../lib/i18n.js';
+import { SITE } from '../config.js';
+interface Props { lang: 'es' | 'ca' }
+const { lang } = Astro.props;
+const t = T[lang];
+const es = lang === 'es';
+---
+<Base lang={lang} title={t.legal.title} description={t.legal.description} path={ROUTES[lang].legal} alternates={{ es: ROUTES.es.legal, ca: ROUTES.ca.legal }}>
+  <section class="hero" style="padding-bottom:24px">
+    <div class="wrap"><Header lang={lang} /></div>
+  </section>
+  <main class="wrap">
+    <article class="prose">
+      <h1 class="display">{t.legal.title}</h1>
+      {es ? (
+        <>
+          <h2>Titular del sitio</h2>
+          <p>En cumplimiento de la Ley 34/2002 de servicios de la sociedad de la información (LSSI), el titular de {new URL(SITE.url).host} es {SITE.owner}, con NIF {SITE.nif}, domiciliado en {SITE.city}. Contacto: <a class="link" href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p>
+          <h2>Para qué sirve esta web</h2>
+          <p>{SITE.name} ofrece calculadoras gratuitas de sueldo neto, cuota de autónomos, facturas y precio por hora con los parámetros oficiales de 2026. Los resultados son estimaciones orientativas y no sustituyen el asesoramiento de un profesional ni los documentos oficiales. No nos hacemos responsables de decisiones tomadas solo a partir de estos cálculos.</p>
+          <h2>Privacidad</h2>
+          <p>No pedimos ni guardamos datos personales. Las cifras que escribes se calculan en tu navegador y no se envían a ningún servidor. Si compartes un resultado, las cifras van en el enlace detrás del signo #, una parte que los navegadores no envían al servidor; quien reciba el enlace sí podrá verlas.</p>
+          <p>Para que no tengas que repetirlas, tus últimos valores se guardan en el almacenamiento local de tu propio navegador. Puedes borrarlos cuando quieras desde la configuración del navegador.</p>
+          <p>El alojamiento lo presta Cloudflare, que puede registrar datos técnicos (dirección IP, navegador) para la seguridad y el funcionamiento del servicio, de acuerdo con su política de privacidad. Si nos escribes por correo, usaremos tu dirección solo para responderte. Puedes ejercer tus derechos de acceso, rectificación y supresión escribiendo a {SITE.email}, y reclamar ante la Agencia Española de Protección de Datos.</p>
+          <h2>Cookies</h2>
+          <p>Esta web no usa cookies propias ni de terceros, ni herramientas de analítica que te rastreen. Por eso no verás ningún aviso de cookies.</p>
+          <h2>Propiedad intelectual</h2>
+          <p>Los textos, el diseño y el código de {SITE.name} pertenecen a su titular. Puedes enlazar cualquier página libremente.</p>
+        </>
+      ) : (
+        <>
+          <h2>Titular del lloc</h2>
+          <p>En compliment de la Llei 34/2002 de serveis de la societat de la informació (LSSI), el titular de {new URL(SITE.url).host} és {SITE.owner}, amb NIF {SITE.nif}, domiciliat a {SITE.city}. Contacte: <a class="link" href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p>
+          <h2>Per a què serveix aquest web</h2>
+          <p>{SITE.name} ofereix calculadores gratuïtes de sou net, quota d’autònoms, factures i preu per hora amb els paràmetres oficials del 2026. Els resultats són estimacions orientatives i no substitueixen l’assessorament d’un professional ni els documents oficials. No ens fem responsables de decisions preses només a partir d’aquests càlculs.</p>
+          <h2>Privacitat</h2>
+          <p>No demanem ni desem dades personals. Les xifres que escrius es calculen al teu navegador i no s’envien a cap servidor. Si comparteixes un resultat, les xifres van a l’enllaç darrere del signe #, una part que els navegadors no envien al servidor; qui rebi l’enllaç sí que les podrà veure.</p>
+          <p>Perquè no les hagis de repetir, els teus últims valors es desen a l’emmagatzematge local del teu propi navegador. Els pots esborrar quan vulguis des de la configuració del navegador.</p>
+          <p>L’allotjament el presta Cloudflare, que pot registrar dades tècniques (adreça IP, navegador) per a la seguretat i el funcionament del servei, d’acord amb la seva política de privacitat. Si ens escrius per correu, farem servir la teva adreça només per respondre’t. Pots exercir els drets d’accés, rectificació i supressió escrivint a {SITE.email}, i reclamar davant l’Agència Espanyola de Protecció de Dades.</p>
+          <h2>Galetes</h2>
+          <p>Aquest web no fa servir galetes pròpies ni de tercers, ni eines d’analítica que et rastregin. Per això no veuràs cap avís de galetes.</p>
+          <h2>Propietat intel·lectual</h2>
+          <p>Els textos, el disseny i el codi de {SITE.name} pertanyen al seu titular. Pots enllaçar qualsevol pàgina lliurement.</p>
+        </>
+      )}
+    </article>
+  </main>
+  <Footer lang={lang} />
+  <script>
+    import { boot } from '../scripts/app.js';
+    document.addEventListener('astro:page-load', boot);
+  </script>
+</Base>

@@ -1,0 +1,22 @@
+---
+interface Props { items: [string, string][]; heading: string }
+const { items, heading } = Astro.props;
+---
+<section class="faq wrap" data-faq aria-labelledby="faq-h">
+  <div class="faq-grid">
+    <div class="faq-list">
+      <h2 id="faq-h" data-reveal>{heading}</h2>
+      {items.map(([q, a], i) => (
+        <div data-reveal style={`--i:${Math.min(i, 6)}`}>
+          <h3 style="margin:0;font:inherit">
+            <button type="button" class="faq-q" id={`fq-${i}`} aria-expanded={i === 0 ? 'true' : 'false'} aria-controls={`fa-${i}`} data-faq-q={i}>{q}</button>
+          </h3>
+          <p class="faq-a-inline" id={`fa-${i}`} hidden={i !== 0} data-faq-a={i}>{a}</p>
+        </div>
+      ))}
+    </div>
+    <div class="faq-pane" aria-hidden="true">
+      <p class="swap" data-faq-pane>{items[0][1]}</p>
+    </div>
+  </div>
+</section>

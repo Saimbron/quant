@@ -1,0 +1,15 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const { Browser, sleep } = await import(pathToFileURL(join(homedir(), '.agents/skills/design-taste-frontend/scripts/lib/cdp.mjs')).href);
+const b = await Browser.launch();
+const p = await b.newPage({ width: 1440, height: 900 });
+await p.send('Page.addScriptToEvaluateOnNewDocument', { source: "window.__csp=[];document.addEventListener('securitypolicyviolation',e=>window.__csp.push(e.violatedDirective+' '+e.blockedURI))" });
+await p.goto('http://localhost:4322/', { settleMs: 3500 });
+const a = await p.eval(`({ js: document.documentElement.classList.contains('js'), coins: document.querySelector('.hero').classList.contains('has-coins'), csp: window.__csp, pins: document.querySelectorAll('.pin-spacer').length })`);
+await p.eval(`document.querySelector('.tab[href="/factura-iva-irpf/"]').click()`); await sleep(3000);
+const c = await p.eval(`({ path: location.pathname, js: document.documentElement.classList.contains('js'), coins: document.querySelector('.hero').classList.contains('has-coins'), csp: window.__csp })`);
+await p.eval(`scrollTo(0, 3500)`); await sleep(1500);
+const v = await p.eval(`({ video: [...document.querySelectorAll('video')].map(v => v.readyState), csp: window.__csp })`);
+console.log(JSON.stringify({ a, c, v, errors: p.consoleErrors }, null, 1));
+await b.close();

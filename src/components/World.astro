@@ -1,0 +1,42 @@
+---
+import { T, ROUTES } from '../lib/i18n.js';
+interface Props { lang: 'es' | 'ca'; calc: string }
+const { lang, calc } = Astro.props;
+const w = T[lang].world;
+---
+<section class="world wrap" aria-labelledby="world-h">
+  <h2 id="world-h" class="world-h" data-lines><span class="ln"><span>{w.heading[0]}</span></span><span class="ln"><span>{w.heading[1]}</span></span></h2>
+  <ol class="world-list">
+    {w.items.map((it, i) => (
+      <li class="world-item" data-reveal style={`--i:${i}`}>
+        <figure>
+          <div class="world-img">
+            {it.video ? (
+              <video data-loop muted loop playsinline preload="none" poster={`/media/${it.video}-poster.webp`} width="640" height="800" aria-hidden="true">
+                <source src={`/media/${it.video}.webm`} type="video/webm" />
+              </video>
+            ) : (
+              <img src={`/img/${it.img}-800.webp`} srcset={`/img/${it.img}-480.webp 480w, /img/${it.img}-800.webp 800w`}
+                sizes="(max-width: 1023px) 46vw, 16vw" width="800" height="1000" alt={it.alt} loading="lazy" decoding="async"
+                style={`object-position:${it.pos}`} />
+            )}
+          </div>
+          <figcaption>
+            <span class="world-year num">{it.year}</span>
+            <span class="world-text">{it.text}</span>
+            <a class="world-credit link" href={it.href} rel="noopener" target="_blank">{it.credit}</a>
+          </figcaption>
+        </figure>
+      </li>
+    ))}
+    <li class="world-item world-now" data-reveal style={`--i:${w.items.length}`}>
+      <a href={`${ROUTES[lang][calc]}#calc`} class="world-now-tile">
+        <span class="world-year num">{w.now.year}</span>
+        <span class="world-text">{w.now.text}</span>
+        <span class="world-cta">{w.now.cta}
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19L19 5M8 5h11v11" fill="none" stroke="currentColor" stroke-width="2.5" /></svg>
+        </span>
+      </a>
+    </li>
+  </ol>
+</section>

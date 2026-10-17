@@ -1,0 +1,39 @@
+---
+import { T } from '../lib/i18n.js';
+import { DEFAULTS, compute, fill } from '../lib/calcs.js';
+interface Props { lang: 'es' | 'ca'; calc: string }
+const { lang, calc } = Astro.props;
+const t = T[lang];
+const st = t[calc].stages;
+const r = compute(calc, DEFAULTS[calc], t.locale);
+const total = r.stages.segs.reduce((a, s) => a + s.v, 0) || 1;
+---
+<section class="stages" data-stages aria-labelledby="st-h">
+  <div class="stages-text">
+    <h2 id="st-h" class="stages-clause swap" data-st-clause aria-live="polite">{fill(st.clauses[0], r.stages.vars)}</h2>
+    <p class="stages-note swap" data-st-note>{fill(st.notes[0], r.stages.vars)}</p>
+  </div>
+  <div class="stages-ui">
+    <div class="meter" data-ui>
+      <p class="meter-amount swap" data-st-amount>{r.stages.amounts[0]}</p>
+      <p class="meter-label" data-st-label>{st.labels[0]}</p>
+      <div class="meter-bar" aria-hidden="true">
+        {r.stages.segs.map((s) => <span style={`flex-grow:${s.v / total};background:${s.c}`}></span>)}
+      </div>
+      <ul class="meter-list">
+        {st.segs.map((name, i) => (
+          <li><span><i style={`background:${r.stages.segs[i].c}`}></i>{name}</span><span data-st-row={i}>{r.stages.rows[i]}</span></li>
+        ))}
+      </ul>
+    </div>
+  </div>
+  <div class="stages-control">
+    <label class="sr-only" for="st-range">{st.label}</label>
+    <input id="st-range" type="range" min="0" max="3" step="1" value="0" data-st-range style="--pct:0%"
+      aria-valuetext={st.names[0]} />
+    <ol class="stages-names">
+      {st.names.map((n, i) => <li class={i === 0 ? 'is-on' : ''}>{n}</li>)}
+    </ol>
+  </div>
+  <script type="application/json" data-st-i18n set:html={JSON.stringify({ clauses: st.clauses, notes: st.notes, names: st.names, labels: st.labels })}></script>
+</section>

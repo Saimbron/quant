@@ -1,0 +1,429 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from './Header.astro';
+import Footer from './Footer.astro';
+import Faq from './Faq.astro';
+import Stages from './Stages.astro';
+import World from './World.astro';
+import { T, ROUTES, CALCS } from '../lib/i18n.js';
+import { DEFAULTS, compute, split } from '../lib/calcs.js';
+import { sueldoNeto, TRAMOS_AUTONOMOS, TIPO_AUTONOMOS } from '../lib/tax.js';
+import { SITE } from '../config.js';
+
+interface Props { lang: 'es' | 'ca'; calc: 'sueldo' | 'autonomos' | 'factura' | 'hora' }
+const { lang, calc } = Astro.props;
+const t = T[lang];
+const c = t[calc];
+const s = DEFAULTS[calc];
+const r = compute(calc, s, t.locale);
+const big = split(r.result, t.locale);
+const fmt = new Intl.NumberFormat(t.locale, { maximumFractionDigits: 0, useGrouping: 'always' });
+const eur = new Intl.NumberFormat(t.locale, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' });
+const eur2 = new Intl.NumberFormat(t.locale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, useGrouping: 'always' });
+const path = ROUTES[lang][calc];
+const alternates = { es: ROUTES.es[calc], ca: ROUTES.ca[calc] };
+const resultUnit = calc === 'hora' ? '/h' : '';
+
+const pageUrl = new URL(path, SITE.url).href;
+const jsonld = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: c.title,
+    url: pageUrl,
+    description: c.description,
+    applicationCategory: 'FinanceApplication',
+    operatingSystem: 'Web',
+    inLanguage: t.locale,
+    isAccessibleForFree: true,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+    publisher: { '@type': 'Organization', name: SITE.name, url: SITE.url },
+    dateModified: SITE.updated,
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: c.faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  },
+];
+
+// Salary table (built at compile time)
+const tableRows = [16000, 18000, 20000, 22000, 24000, 26000, 28000, 30000, 33000, 36000, 40000, 45000, 50000, 60000, 75000];
+const table = (pagas: number) => tableRows.map((b) => ({ b, ...sueldoNeto({ bruto: b, pagas }) }));
+---
+<Base lang={lang} title={c.title} description={c.description} path={path} alternates={alternates} jsonld={jsonld}>
+  <a class="skip" href="#calc">{t.skip}</a>
+  <section class="hero" data-calc={calc} data-lang={lang} data-locale={t.locale} data-stage={calc}>
+    <p class="sr-only" role="status" data-announce></p>
+    <div class="wrap">
+      <Header lang={lang} calc={calc} />
+
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <h1 class="display" transition:name="h1">
+            <span class="line"><span data-line style="--i:0">{c.h1[0]}</span></span>
+            <span class="line"><span data-line style="--i:1">{c.h1[1]}</span></span>
+          </h1>
+          <p class="lead" data-rise style="--i:0">{c.lead}</p>
+
+          <form class="calc" id="calc" data-rise style="--i:1" onsubmit="return false" novalidate>
+            {calc === 'sueldo' && (
+              <>
+                <div class="field">
+                  <label for="f-bruto">{c.fields.bruto}</label>
+                  <div class="money"><input id="f-bruto" name="bruto" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.bruto)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.bruto} min="12000" max="120000" step="500" value={s.bruto} data-sync="bruto" />
+                </div>
+                <fieldset class="field">
+                  <legend>{c.fields.pagas}</legend>
+                  <div class="segmented">
+                    <label><input type="radio" name="pagas" value="14" checked /><span>14</span></label>
+                    <label><input type="radio" name="pagas" value="12" /><span>12</span></label>
+                  </div>
+                </fieldset>
+                <fieldset class="field">
+                  <legend>{c.fields.contrato}</legend>
+                  <div class="segmented">
+                    <label><input type="radio" name="contrato" value="indefinido" checked /><span>{c.fields.indefinido}</span></label>
+                    <label><input type="radio" name="contrato" value="temporal" /><span>{c.fields.temporal}</span></label>
+                  </div>
+                </fieldset>
+                <details class="more">
+                  <summary>{t.more}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" /></svg></summary>
+                  <div class="more-body">
+                    <div class="field">
+                      <label id="l-hijos">{c.fields.hijos}</label>
+                      <div class="stepper" data-stepper="hijos" role="group" aria-labelledby="l-hijos">
+                        <button type="button" data-step="-1" aria-label="−1">−</button>
+                        <output name="hijos-out" aria-live="polite">0</output>
+                        <button type="button" data-step="1" aria-label="+1">+</button>
+                        <input type="hidden" name="hijos" value="0" data-min="0" data-max="6" />
+                      </div>
+                    </div>
+                    <div class="field" data-when="hijos">
+                      <label id="l-menores3">{c.fields.menores3}</label>
+                      <div class="stepper" data-stepper="menores3" role="group" aria-labelledby="l-menores3">
+                        <button type="button" data-step="-1" aria-label="−1">−</button>
+                        <output name="menores3-out" aria-live="polite">0</output>
+                        <button type="button" data-step="1" aria-label="+1">+</button>
+                        <input type="hidden" name="menores3" value="0" data-min="0" data-max="6" />
+                      </div>
+                    </div>
+                    <label class="check" data-when="hijos"><input type="checkbox" name="compartidos" checked /><span class="switch"></span>{c.fields.compartidos}</label>
+                    <div class="field">
+                      <label for="f-sit">{c.fields.situacion}</label>
+                      <select class="select" id="f-sit" name="situacion">
+                        <option value="3">{c.fields.sit3}</option>
+                        <option value="2">{c.fields.sit2}</option>
+                        <option value="1">{c.fields.sit1}</option>
+                      </select>
+                    </div>
+                  </div>
+                </details>
+              </>
+            )}
+
+            {calc === 'autonomos' && (
+              <>
+                <div class="field">
+                  <label for="f-ingresos">{c.fields.ingresos}</label>
+                  <div class="money"><input id="f-ingresos" name="ingresos" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.ingresos)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.ingresos} min="0" max="10000" step="50" value={s.ingresos} data-sync="ingresos" />
+                </div>
+                <div class="field">
+                  <label for="f-gastos">{c.fields.gastos}</label>
+                  <div class="money"><input id="f-gastos" name="gastos" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.gastos)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.gastos} min="0" max="5000" step="25" value={s.gastos} data-sync="gastos" />
+                </div>
+                <label class="check"><input type="checkbox" name="tarifaPlana" /><span class="switch"></span>{c.fields.tarifaPlana}</label>
+                <label class="check"><input type="checkbox" name="societario" /><span class="switch"></span>{c.fields.societario}</label>
+              </>
+            )}
+
+            {calc === 'factura' && (
+              <>
+                <div class="field">
+                  <label for="f-importe">{c.fields.importe}</label>
+                  <div class="money"><input id="f-importe" name="importe" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.importe)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.importe} min="0" max="10000" step="50" value={s.importe} data-sync="importe" />
+                </div>
+                <fieldset class="field">
+                  <legend>{c.fields.modo}</legend>
+                  <div class="segmented">
+                    <label><input type="radio" name="modo" value="base" checked /><span>{c.fields.modoBase}</span></label>
+                    <label><input type="radio" name="modo" value="total" /><span>{c.fields.modoTotal}</span></label>
+                  </div>
+                </fieldset>
+                <fieldset class="field">
+                  <legend>{c.fields.iva}</legend>
+                  <div class="segmented">
+                    {[21, 10, 4, 0].map((v) => <label><input type="radio" name="iva" value={v} checked={v === 21} /><span>{v} %</span></label>)}
+                  </div>
+                </fieldset>
+                <fieldset class="field">
+                  <legend>{c.fields.irpf}</legend>
+                  <div class="segmented">
+                    {[15, 7, 0].map((v) => <label><input type="radio" name="irpf" value={v} checked={v === 15} /><span>{v} %</span></label>)}
+                  </div>
+                </fieldset>
+              </>
+            )}
+
+            {calc === 'hora' && (
+              <>
+                <div class="field">
+                  <label for="f-neto">{c.fields.netoMes}</label>
+                  <div class="money"><input id="f-neto" name="netoMes" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.netoMes)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.netoMes} min="500" max="8000" step="50" value={s.netoMes} data-sync="netoMes" />
+                </div>
+                <div class="field">
+                  <label for="f-gastosMes">{c.fields.gastosMes}</label>
+                  <div class="money"><input id="f-gastosMes" name="gastosMes" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.gastosMes)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.gastosMes} min="0" max="3000" step="25" value={s.gastosMes} data-sync="gastosMes" />
+                </div>
+                <div class="field">
+                  <label id="l-horas">{c.fields.horasSemana}</label>
+                  <div class="stepper" data-stepper="horasSemana" role="group" aria-labelledby="l-horas">
+                    <button type="button" data-step="-1" aria-label="−1">−</button>
+                    <output name="horasSemana-out" aria-live="polite">{s.horasSemana}</output>
+                    <button type="button" data-step="1" aria-label="+1">+</button>
+                    <input type="hidden" name="horasSemana" value={s.horasSemana} data-min="5" data-max="60" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label id="l-semanas">{c.fields.semanasLibres}</label>
+                  <div class="stepper" data-stepper="semanasLibres" role="group" aria-labelledby="l-semanas">
+                    <button type="button" data-step="-1" aria-label="−1">−</button>
+                    <output name="semanasLibres-out" aria-live="polite">{s.semanasLibres}</output>
+                    <button type="button" data-step="1" aria-label="+1">+</button>
+                    <input type="hidden" name="semanasLibres" value={s.semanasLibres} data-min="0" data-max="20" />
+                  </div>
+                </div>
+                <label class="check"><input type="checkbox" name="tarifaPlana" /><span class="switch"></span>{c.fields.tarifaPlana}</label>
+              </>
+            )}
+
+            <div class="hero-actions">
+              <button type="button" class="button" data-share>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3M6 7l4-4 4 4M4 11v6h12v-6" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+                {t.share}
+              </button>
+            </div>
+            <p class="fineprint">{t.disclaimer}</p>
+          </form>
+        </div>
+
+        <div class="doc-col">
+          <div class="stage-field" aria-hidden="true" transition:name="stage">
+            <span class="stage-num" data-bignum>{big.int}</span>
+          </div>
+          <div class="doc-stage doc-print" transition:name="doc">
+          <div class="doc-tilt" data-tilt>
+          <article class="doc" data-ui aria-label={c.resultLabel}>
+            {calc === 'sueldo' && (
+              <>
+                <header class="doc-head"><h2>{c.doc.title}</h2><p>{c.doc.period} · {t.year}</p></header>
+                <div class="doc-group">
+                  <h3>{c.doc.devengos}</h3>
+                  <div class="doc-row is-strong"><span>{c.doc.salario}</span><span class="pct"></span><span class="amt" data-out="salario">{r.out.salario}</span></div>
+                </div>
+                <div class="doc-group">
+                  <h3>{c.doc.deducciones}</h3>
+                  <div class="doc-row"><span>{c.doc.comunes}</span><span class="pct">4,70 %</span><span class="amt" data-out="comunes">{r.out.comunes}</span></div>
+                  <div class="doc-row"><span>{c.doc.desempleo}</span><span class="pct" data-out="desempleoPct">{r.out.desempleoPct}</span><span class="amt" data-out="desempleo">{r.out.desempleo}</span></div>
+                  <div class="doc-row"><span>{c.doc.fp}</span><span class="pct">0,10 %</span><span class="amt" data-out="fp">{r.out.fp}</span></div>
+                  <div class="doc-row"><span>{c.doc.mei}</span><span class="pct">0,15 %</span><span class="amt" data-out="mei">{r.out.mei}</span></div>
+                  <div class="doc-row" data-when="solidaridad" hidden><span>{c.doc.solidaridad}</span><span class="pct"></span><span class="amt" data-out="solidaridad">{r.out.solidaridad}</span></div>
+                  <div class="doc-row"><span>{c.doc.irpf}</span><span class="pct" data-out="irpfPct">{r.out.irpfPct}</span><span class="amt" data-out="irpf">{r.out.irpf}</span></div>
+                  <div class="doc-row is-strong"><span>{c.doc.total}</span><span class="pct"></span><span class="amt" data-out="total">{r.out.total}</span></div>
+                </div>
+                <footer class="doc-foot">
+                  <span class="label">{c.doc.liquido}</span>
+                  <p class="doc-total" data-result><span class="sr-only" data-result-text>{eur2.format(r.result)}{resultUnit}</span><span class="roll" aria-hidden="true" data-roll>{big.int}<small>{big.dec} €</small></span></p>
+                  <div class="doc-sub">
+                    <span data-when="extra">{c.doc.extra}: <b data-out="extra">{r.out.extra}</b></span>
+                    <span>{c.doc.anual}: <b data-out="anual">{r.out.anual}</b></span>
+                  </div>
+                </footer>
+              </>
+            )}
+            {calc === 'autonomos' && (
+              <>
+                <header class="doc-head"><h2>{c.doc.title}</h2><p>{c.doc.period} · {t.year}</p></header>
+                <div class="doc-group">
+                  <div class="doc-row"><span>{c.doc.ingresos}</span><span class="pct"></span><span class="amt" data-out="ingresos">{r.out.ingresos}</span></div>
+                  <div class="doc-row"><span>{c.doc.gastos}</span><span class="pct"></span><span class="amt" data-out="gastos">{r.out.gastos}</span></div>
+                  <div class="doc-row"><span>{c.doc.deduccion}</span><span class="pct" data-out="deduccionPct">{r.out.deduccionPct}</span><span class="amt" data-out="deduccion">{r.out.deduccion}</span></div>
+                  <div class="doc-row is-strong"><span>{c.doc.computable}</span><span class="pct"></span><span class="amt" data-out="computable">{r.out.computable}</span></div>
+                </div>
+                <div class="doc-group">
+                  <div class="doc-row"><span>{c.doc.tramo}</span><span class="pct"></span><span class="amt" data-out="tramo">{r.out.tramo}</span></div>
+                  <div class="doc-row"><span>{c.doc.base}</span><span class="pct"></span><span class="amt" data-out="base">{r.out.base}</span></div>
+                  <div class="doc-row"><span>{c.doc.tipo}</span><span class="pct"></span><span class="amt" data-out="tipo">{r.out.tipo}</span></div>
+                </div>
+                <footer class="doc-foot">
+                  <span class="label">{c.doc.cuota}</span>
+                  <p class="doc-total" data-result><span class="sr-only" data-result-text>{eur2.format(r.result)}{resultUnit}</span><span class="roll" aria-hidden="true" data-roll>{big.int}<small>{big.dec} €</small></span></p>
+                  <div class="doc-sub"><span>{c.doc.anual}: <b data-out="anual">{r.out.anual}</b></span></div>
+                </footer>
+              </>
+            )}
+            {calc === 'factura' && (
+              <>
+                <header class="doc-head"><h2>{c.doc.title}</h2><p>{c.doc.number}</p></header>
+                <div class="doc-group">
+                  <div class="doc-row"><span>{c.doc.concepto}</span><span class="pct"></span><span class="amt" data-out="base">{r.out.base}</span></div>
+                </div>
+                <div class="doc-group">
+                  <div class="doc-row is-strong"><span>{c.doc.base}</span><span class="pct"></span><span class="amt" data-out="base">{r.out.base}</span></div>
+                  <div class="doc-row"><span>{c.doc.iva}</span><span class="pct" data-out="ivaPct">{r.out.ivaPct}</span><span class="amt" data-out="iva">{r.out.iva}</span></div>
+                  <div class="doc-row"><span>{c.doc.irpf}</span><span class="pct" data-out="irpfPct">{r.out.irpfPct}</span><span class="amt" data-out="irpf">{r.out.irpf}</span></div>
+                </div>
+                <footer class="doc-foot">
+                  <span class="label">{c.doc.total}</span>
+                  <p class="doc-total" data-result><span class="sr-only" data-result-text>{eur2.format(r.result)}{resultUnit}</span><span class="roll" aria-hidden="true" data-roll>{big.int}<small>{big.dec} €</small></span></p>
+                  <div class="doc-sub"><span>{c.doc.tuyo}: <b data-out="tuyo">{r.out.tuyo}</b></span></div>
+                  <p class="doc-note">{c.doc.hacienda}</p>
+                </footer>
+              </>
+            )}
+            {calc === 'hora' && (
+              <>
+                <header class="doc-head"><h2>{c.doc.title}</h2><p>{c.doc.period} · {t.year}</p></header>
+                <div class="doc-group">
+                  <div class="doc-row"><span>{c.doc.neto}</span><span class="pct"></span><span class="amt" data-out="neto">{r.out.neto}</span></div>
+                  <div class="doc-row"><span>{c.doc.gastos}</span><span class="pct"></span><span class="amt" data-out="gastos">{r.out.gastos}</span></div>
+                  <div class="doc-row"><span>{c.doc.cuota}</span><span class="pct"></span><span class="amt" data-out="cuota">{r.out.cuota}</span></div>
+                  <div class="doc-row"><span>{c.doc.irpf}</span><span class="pct"></span><span class="amt" data-out="irpf">{r.out.irpf}</span></div>
+                  <div class="doc-row is-strong"><span>{c.doc.facturacion}</span><span class="pct"></span><span class="amt" data-out="facturacion">{r.out.facturacion}</span></div>
+                  <div class="doc-row"><span>{c.doc.horas}</span><span class="pct"></span><span class="amt" data-out="horas">{r.out.horas}</span></div>
+                </div>
+                <footer class="doc-foot">
+                  <span class="label">{c.doc.hora} · {c.doc.sinIva}</span>
+                  <p class="doc-total" data-result><span class="sr-only" data-result-text>{eur2.format(r.result)}{resultUnit}</span><span class="roll" aria-hidden="true" data-roll>{big.int}<small>{big.dec} €</small></span></p>
+                  <div class="doc-sub"><span>{c.doc.dia}: <b data-out="dia">{r.out.dia}</b></span></div>
+                </footer>
+              </>
+            )}
+          </article>
+          </div>
+            <div class="coins-box" aria-hidden="true">
+              <canvas class="coins" data-coins></canvas>
+              <ul class="coins-legend">
+                {(c.coinLegend ?? c.stages?.segs ?? []).map((name, i) => <li><i class={`dot dot-${i}`}></i>{name}</li>)}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    {c.stages && <Stages lang={lang} calc={calc} />}
+
+    <World lang={lang} calc={calc} />
+
+    {calc === 'sueldo' && (
+      <section class="figure" aria-labelledby="fig-h">
+        <div class="wrap" style="display:flex;flex-direction:column;flex:1;width:100%">
+          <h2 id="fig-h" data-reveal>{c.figure.question}</h2>
+          <div class="figure-control" data-reveal style="--i:1">
+            <label for="fig-bruto"><span>{c.figure.control}</span><output data-fig-out class="num">{eur.format(s.bruto)}</output></label>
+            <input id="fig-bruto" type="range" min="12000" max="120000" step="500" value={s.bruto} data-fig />
+          </div>
+          <div class="figure-year" aria-hidden="true" data-reveal style="--i:2">
+            {Array.from({ length: 52 }, (_, i) => <i class={i < Math.round(r.raw.diasHacienda / 7) ? 'on' : ''}></i>)}
+          </div>
+          <div class="figure-bottom">
+            <p class="figure-number" data-reveal><span data-fig-days>{r.raw.diasHacienda}</span><small>{c.figure.unit}</small></p>
+            <p class="figure-sentence" data-reveal style="--i:1">{c.figure.sentence}</p>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {calc === 'sueldo' && (
+      <section class="bands wrap" aria-labelledby="tbl-h">
+        <div class="bands-head" data-reveal>
+          <h2 id="tbl-h" data-lines><span class="ln"><span>{c.table.heading[0]}</span></span><span class="ln"><span>{c.table.heading[1]}</span></span></h2>
+        </div>
+        <div class="bands-body" data-tabs>
+          <div class="bands-tabs" role="tablist" aria-labelledby="tbl-h">
+            {c.table.tabs.map((name, i) => (
+              <button type="button" role="tab" id={`tt-${i}`} aria-controls={`tp-${i}`} aria-selected={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1}>{name}</button>
+            ))}
+          </div>
+          <div>
+            {[14, 12].map((pagas, i) => (
+              <div class="bands-list" role="tabpanel" id={`tp-${i}`} aria-labelledby={`tt-${i}`} hidden={i !== 0}>
+                <div class="band band-head" aria-hidden="true">{c.table.cols.map((h) => <span>{h}</span>)}<span></span></div>
+                {table(pagas).map((row) => (
+                  <div class="band" data-reveal-row>
+                    <span class="big">{eur.format(row.b)}</span>
+                    <span><span class="sr-only">{c.table.cols[1]}: </span>{eur2.format(row.netoMes)}</span>
+                    <span class="soft"><span class="sr-only">{c.table.cols[2]}: </span>{row.tipoIRPF.toLocaleString(t.locale, { minimumFractionDigits: 2 })} %</span>
+                    <span class="soft"><span class="sr-only">{c.table.cols[3]}: </span>{eur.format(row.netoAnual)}</span>
+                    <button type="button" data-use={row.b} data-pagas={pagas} aria-label={`${c.table.use}: ${eur.format(row.b)}, ${pagas}`}>{c.table.use}</button>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <p class="bands-note">{c.table.note}</p>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {calc === 'autonomos' && (
+      <section class="bands wrap" aria-labelledby="tr-h">
+        <div class="bands-head" data-reveal>
+          <h2 id="tr-h" data-lines><span class="ln"><span>{c.bands.heading[0]}</span></span><span class="ln"><span>{c.bands.heading[1]}</span></span></h2>
+        </div>
+        <div class="bands-body" data-tabs>
+          <div class="bands-tabs" role="tablist" aria-labelledby="tr-h">
+            {c.bands.tabs.map((name, i) => (
+              <button type="button" role="tab" id={`tt-${i}`} aria-controls={`tp-${i}`} aria-selected={i === 1 ? 'true' : 'false'} tabindex={i === 1 ? 0 : -1}>{name}</button>
+            ))}
+          </div>
+          <div>
+            {[[0, 3], [3, 15]].map(([a, b], i) => (
+              <div class="bands-list" role="tabpanel" id={`tp-${i}`} aria-labelledby={`tt-${i}`} hidden={i !== 1}>
+                <div class="band tramos band-head" aria-hidden="true">{c.bands.cols.map((h) => <span>{h}</span>)}<span></span></div>
+                {TRAMOS_AUTONOMOS.slice(a, b).map((tr, j) => {
+                  const idx = a + j;
+                  const prev = idx === 0 ? 0 : TRAMOS_AUTONOMOS[idx - 1].hasta;
+                  const label = tr.hasta === Infinity ? `${c.bands.from} ${eur2.format(prev)}` : `${eur2.format(prev)} – ${eur2.format(tr.hasta)}`;
+                  return (
+                    <div class={`band tramos${idx === r.tramo ? ' is-yours' : ''}`} data-tramo={idx}>
+                      <span class="big">{label}</span>
+                      <span><span class="sr-only">{c.bands.cols[1]}: </span>{eur2.format(tr.base)}</span>
+                      <span class="soft"><span class="sr-only">{c.bands.cols[2]}: </span>{eur2.format(tr.base * TIPO_AUTONOMOS)}</span>
+                      <span class="tag">{idx === r.tramo ? c.bands.yours : ''}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            <p class="bands-note">{c.bands.note}</p>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <Faq items={c.faq} heading={lang === 'ca' ? 'Preguntes freqüents' : 'Preguntas frecuentes'} />
+  </main>
+
+  <Footer lang={lang} />
+
+  <div class="dock" data-dock aria-hidden="true" inert>
+    <div><span>{c.resultLabel}</span><br /><strong data-dock-value>{eur2.format(r.result)}{resultUnit}</strong></div>
+    <a href="#calc">{lang === 'ca' ? 'Canvia les dades' : 'Cambiar datos'}</a>
+  </div>
+  <div class="toast" role="status" aria-live="polite" data-toast></div>
+
+  <script>
+    import { boot } from '../scripts/app.js';
+    document.addEventListener('astro:page-load', boot);
+  </script>
+</Base>
