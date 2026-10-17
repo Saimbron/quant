@@ -60,6 +60,21 @@ Les peces de la franja «Cinc segles fent comptes» són d'arxius oberts, amb el
 
 Els retalls WebP es regeneren amb `node .tools/img.mjs` (necessita `sharp`, inclòs com a dependència de desenvolupament).
 
+## Activar Google AdSense
+
+Tot està preparat i apagat. Quan Google aprovi el compte:
+
+1. A `src/config.js`, posa el codi a `ads.client` (`ca-pub-…`) i els ID de dos blocs d'anunci a `ads.slots` (un sota la calculadora i un abans de les preguntes freqüents).
+2. A AdSense → *Privacitat i missatges* → *RGPD*, crea i publica el missatge de consentiment (és gratuït i està certificat per Google).
+3. `git push`. En publicar-se, s'activen sols:
+   - els espais d'anunci, amb l'alçada reservada perquè la pàgina no salti;
+   - l'`ads.txt`;
+   - la política de seguretat (CSP) amb els dominis de Google;
+   - l'enllaç "Preferències de privacitat" al peu;
+   - el text legal de galetes i publicitat.
+
+Si actives Cloudflare Web Analytics, posa `cloudflareAnalytics: true` perquè la CSP en permeti l'script.
+
 ## Privacitat
 
-No hi ha galetes ni analítica. Els valors es calculen al navegador i es desen només a l'emmagatzematge local de cada visitant. Si més endavant hi afegeixes anuncis o analítica amb galetes, caldrà un bàner de consentiment i actualitzar `/legal/`.
+Mentre AdSense estigui apagat no hi ha galetes ni analítica. Els valors es calculen al navegador i es desen només a l'emmagatzematge local de cada visitant. En activar AdSense, el consentiment i el text legal canvien sols (vegeu més amunt).

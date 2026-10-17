@@ -1,6 +1,6 @@
 ---
 import { T, ROUTES, CALCS } from '../lib/i18n.js';
-import { SITE } from '../config.js';
+import { SITE, ADS_ON } from '../config.js';
 interface Props { lang: 'es' | 'ca' }
 const { lang } = Astro.props;
 const t = T[lang];
@@ -10,7 +10,7 @@ const updated = new Date(SITE.updated).toLocaleDateString(t.locale, { day: 'nume
 <footer class="footer">
   <div class="tile tile-statement">
     <p>{f.statement}</p>
-    <p class="legal">© 2026 {SITE.name} · {f.rights} <a class="link" href={ROUTES[lang].legal}>{f.legal}</a></p>
+    <p class="legal">© 2026 {SITE.name} · {ADS_ON ? f.rightsAds : f.rights} <a class="link" href={ROUTES[lang].legal}>{f.legal}</a>{ADS_ON && <> · <button type="button" class="link link-button" data-privacy-prefs>{f.privacyPrefs}</button></>}</p>
   </div>
   <nav class="tile tile-nav" aria-labelledby="fn-h">
     <h2 id="fn-h">{f.navTitle}</h2>

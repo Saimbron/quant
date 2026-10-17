@@ -3,7 +3,7 @@ import '@fontsource-variable/jost';
 import jostLatin from '@fontsource-variable/jost/files/jost-latin-wght-normal.woff2?url';
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
-import { SITE } from '../config.js';
+import { SITE, ADS_ON } from '../config.js';
 
 interface Props {
   lang: 'es' | 'ca';
@@ -20,7 +20,7 @@ const ogImage = new URL(lang === 'ca' ? '/og-ca.png' : '/og-es.png', SITE.url).h
 const fullTitle = title.includes(SITE.name) ? title : `${title} · ${SITE.name}`;
 ---
 <!doctype html>
-<html lang={lang}>
+<html lang={lang} data-ads-client={ADS_ON ? SITE.ads.client : undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />

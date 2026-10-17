@@ -708,3 +708,12 @@ details.more .stepper output { background: var(--night); }
   /* Pinned while the scroll walks the four steps, so it fills the screen */
   .stages { min-height: 100svh; }
 }
+
+/* ---------- Ad spaces (only rendered when AdSense is on) ---------- */
+.ad { padding-block: clamp(40px, 5vw, 72px); background: var(--bg); }
+.ad-inner { display: grid; justify-items: center; gap: 10px; }
+.ad-label { font-size: 0.8125rem; color: var(--muted); }
+/* Space is reserved up front so the page does not jump when the ad arrives */
+.ad .adsbygoogle { width: 100%; max-width: 970px; min-height: 280px; background: var(--surface); }
+.ad:has(ins[data-ad-status='unfilled']) { display: none; }
+.link-button { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 0.07em; }

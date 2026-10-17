@@ -3,7 +3,7 @@ import Base from '../layouts/Base.astro';
 import Header from './Header.astro';
 import Footer from './Footer.astro';
 import { T, ROUTES } from '../lib/i18n.js';
-import { SITE } from '../config.js';
+import { SITE, ADS_ON } from '../config.js';
 interface Props { lang: 'es' | 'ca' }
 const { lang } = Astro.props;
 const t = T[lang];
@@ -26,8 +26,17 @@ const es = lang === 'es';
           <p>No pedimos ni guardamos datos personales. Las cifras que escribes se calculan en tu navegador y no se envían a ningún servidor. Si compartes un resultado, las cifras van en el enlace detrás del signo #, una parte que los navegadores no envían al servidor; quien reciba el enlace sí podrá verlas.</p>
           <p>Para que no tengas que repetirlas, tus últimos valores se guardan en el almacenamiento local de tu propio navegador. Puedes borrarlos cuando quieras desde la configuración del navegador.</p>
           <p>El alojamiento lo presta Cloudflare, que puede registrar datos técnicos (dirección IP, navegador) para la seguridad y el funcionamiento del servicio, de acuerdo con su política de privacidad. Si nos escribes por correo, usaremos tu dirección solo para responderte. Puedes ejercer tus derechos de acceso, rectificación y supresión escribiendo a {SITE.email}, y reclamar ante la Agencia Española de Protección de Datos.</p>
-          <h2>Cookies</h2>
-          <p>Esta web no usa cookies propias ni de terceros, ni herramientas de analítica que te rastreen. Por eso no verás ningún aviso de cookies.</p>
+          {SITE.cloudflareAnalytics && <p>Medimos el número de visitas con Cloudflare Web Analytics, que no usa cookies ni guarda datos que te identifiquen.</p>}
+          <h2>Cookies y publicidad</h2>
+          {ADS_ON ? (
+            <>
+              <p>Esta web se financia con anuncios de Google AdSense. Google y sus socios pueden usar cookies e identificadores para mostrar anuncios, medirlos y, solo si das tu consentimiento, personalizarlos según tus intereses. La primera vez que entras te pedimos permiso con un aviso de consentimiento; si lo rechazas, verás anuncios no personalizados.</p>
+              <p>Puedes cambiar tu decisión cuando quieras desde «Preferencias de privacidad», al pie de cada página. Más información sobre cómo usa Google los datos: <a class="link" href="https://policies.google.com/technologies/partner-sites" rel="noopener" target="_blank">policies.google.com/technologies/partner-sites</a>.</p>
+              <p>Aparte de los anuncios, esta web no usa cookies propias.</p>
+            </>
+          ) : (
+            <p>Esta web no usa cookies propias ni de terceros, ni herramientas de analítica que te rastreen. Por eso no verás ningún aviso de cookies.</p>
+          )}
           <h2>Propiedad intelectual</h2>
           <p>Los textos, el diseño y el código de {SITE.name} pertenecen a su titular. Puedes enlazar cualquier página libremente.</p>
         </>
@@ -41,8 +50,17 @@ const es = lang === 'es';
           <p>No demanem ni desem dades personals. Les xifres que escrius es calculen al teu navegador i no s’envien a cap servidor. Si comparteixes un resultat, les xifres van a l’enllaç darrere del signe #, una part que els navegadors no envien al servidor; qui rebi l’enllaç sí que les podrà veure.</p>
           <p>Perquè no les hagis de repetir, els teus últims valors es desen a l’emmagatzematge local del teu propi navegador. Els pots esborrar quan vulguis des de la configuració del navegador.</p>
           <p>L’allotjament el presta Cloudflare, que pot registrar dades tècniques (adreça IP, navegador) per a la seguretat i el funcionament del servei, d’acord amb la seva política de privacitat. Si ens escrius per correu, farem servir la teva adreça només per respondre’t. Pots exercir els drets d’accés, rectificació i supressió escrivint a {SITE.email}, i reclamar davant l’Agència Espanyola de Protecció de Dades.</p>
-          <h2>Galetes</h2>
-          <p>Aquest web no fa servir galetes pròpies ni de tercers, ni eines d’analítica que et rastregin. Per això no veuràs cap avís de galetes.</p>
+          {SITE.cloudflareAnalytics && <p>Comptem les visites amb Cloudflare Web Analytics, que no fa servir galetes ni desa dades que t’identifiquin.</p>}
+          <h2>Galetes i publicitat</h2>
+          {ADS_ON ? (
+            <>
+              <p>Aquest web es finança amb anuncis de Google AdSense. Google i els seus socis poden fer servir galetes i identificadors per mostrar anuncis, mesurar-los i, només si hi dones el consentiment, personalitzar-los segons els teus interessos. El primer cop que hi entres et demanem permís amb un avís de consentiment; si el rebutges, veuràs anuncis no personalitzats.</p>
+              <p>Pots canviar la decisió quan vulguis des de «Preferències de privacitat», al peu de cada pàgina. Més informació sobre com fa servir Google les dades: <a class="link" href="https://policies.google.com/technologies/partner-sites" rel="noopener" target="_blank">policies.google.com/technologies/partner-sites</a>.</p>
+              <p>A banda dels anuncis, aquest web no fa servir galetes pròpies.</p>
+            </>
+          ) : (
+            <p>Aquest web no fa servir galetes pròpies ni de tercers, ni eines d’analítica que et rastregin. Per això no veuràs cap avís de galetes.</p>
+          )}
           <h2>Propietat intel·lectual</h2>
           <p>Els textos, el disseny i el codi de {SITE.name} pertanyen al seu titular. Pots enllaçar qualsevol pàgina lliurement.</p>
         </>

@@ -5,6 +5,7 @@ import Footer from './Footer.astro';
 import Faq from './Faq.astro';
 import Stages from './Stages.astro';
 import World from './World.astro';
+import AdSlot from './AdSlot.astro';
 import { T, ROUTES, CALCS } from '../lib/i18n.js';
 import { DEFAULTS, compute, split } from '../lib/calcs.js';
 import { sueldoNeto, TRAMOS_AUTONOMOS, TIPO_AUTONOMOS } from '../lib/tax.js';
@@ -320,6 +321,8 @@ const table = (pagas: number) => tableRows.map((b) => ({ b, ...sueldoNeto({ brut
   </section>
 
   <main>
+    <AdSlot slot="afterHero" lang={lang} />
+
     {c.stages && <Stages lang={lang} calc={calc} />}
 
     <World lang={lang} calc={calc} />
@@ -410,6 +413,8 @@ const table = (pagas: number) => tableRows.map((b) => ({ b, ...sueldoNeto({ brut
         </div>
       </section>
     )}
+
+    <AdSlot slot="beforeFaq" lang={lang} />
 
     <Faq items={c.faq} heading={lang === 'ca' ? 'Preguntes freqüents' : 'Preguntas frecuentes'} />
   </main>

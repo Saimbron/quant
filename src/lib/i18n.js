@@ -43,6 +43,8 @@ const es = {
     write: 'Escríbenos',
     cta: 'Calcula tu sueldo',
     rights: 'Sin cookies, sin registro y sin rastreo.',
+    rightsAds: 'Sin registro. Los anuncios solo usan cookies si lo aceptas.',
+    privacyPrefs: 'Preferencias de privacidad',
   },
   sueldo: {
     title: 'Calculadora de sueldo neto 2026: de bruto a neto',
@@ -319,6 +321,8 @@ const ca = {
     write: 'Escriu-nos',
     cta: 'Calcula el teu sou',
     rights: 'Sense galetes, sense registre i sense rastreig.',
+    rightsAds: 'Sense registre. Els anuncis només fan servir galetes si ho acceptes.',
+    privacyPrefs: 'Preferències de privacitat',
   },
   sueldo: {
     title: 'Calculadora de sou net 2026: de brut a net',

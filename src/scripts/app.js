@@ -120,6 +120,7 @@ function webglOK() {
 const whenIdle = (fn, timeout = 1200) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout }) : setTimeout(fn, 500));
 
 export function boot() {
+  initAds();
   initLoops();
   initReveal();
   initClock();
@@ -543,6 +544,28 @@ function initFaq() {
     q.addEventListener('focus', () => { if (wide()) select(i); });
     q.addEventListener('mouseenter', () => { if (wide() && matchMedia('(hover: hover)').matches) select(i); });
   });
+}
+
+// ---------- Ads: only when AdSense is configured (data-ads-client on <html>) ----------
+function initAds() {
+  const client = document.documentElement.dataset.adsClient;
+  if (!client) return;
+  if (!window.__quantAds) {
+    window.__quantAds = true;
+    const s = document.createElement('script');
+    s.async = true;
+    s.crossOrigin = 'anonymous';
+    s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(client)}`;
+    document.head.appendChild(s);
+  }
+  document.querySelectorAll('ins.adsbygoogle:not([data-adsbygoogle-status])').forEach(() => {
+    try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
+  });
+  document.querySelectorAll('[data-privacy-prefs]').forEach((b) => b.addEventListener('click', () => {
+    window.googlefc = window.googlefc || {};
+    window.googlefc.callbackQueue = window.googlefc.callbackQueue || [];
+    window.googlefc.callbackQueue.push(() => window.googlefc.showRevocationMessage?.());
+  }));
 }
 
 // ---------- Generic: muted loops play only when visible ----------
