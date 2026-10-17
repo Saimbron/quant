@@ -1,8 +1,8 @@
-// Datos del sitio. Cambia `url` por tu dominio antes de publicar.
+// Datos del sitio
 export const SITE = {
   name: 'Quant',
-  url: 'https://quant.cat',
-  email: 'hola@quant.cat',
+  url: 'https://quantneto.com',
+  email: 'hola@quantneto.com',
   // Titular del sitio (obligatorio por la LSSI en el aviso legal)
   owner: 'Àlex Cimbron Morales',
   nif: '41633576B',

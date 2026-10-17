@@ -27,7 +27,7 @@ npm run build    # genera dist/
 
 ## Abans de publicar (obligatori)
 
-1. `src/config.js`: posa el teu domini a `url`, el correu, i el **nom i NIF** del titular (ho exigeix la LSSI per a l'avís legal).
+1. `src/config.js` ja té el domini (`quantneto.com`), el correu i les dades del titular que exigeix la LSSI.
 2. Si canvies el domini, torna a generar les imatges `public/og-*.png` (`.tools/og.html`) si vols que hi surti.
 
 ## Publicar a Cloudflare Pages amb el teu domini
