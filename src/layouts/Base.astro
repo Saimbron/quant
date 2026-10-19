@@ -4,6 +4,7 @@ import jostLatin from '@fontsource-variable/jost/files/jost-latin-wght-normal.wo
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
 import { SITE, ADS_ON } from '../config.js';
+import { absolute, withBase, PREVIEW } from '../lib/paths.js';
 
 interface Props {
   lang: 'es' | 'ca';
@@ -15,8 +16,8 @@ interface Props {
   noindex?: boolean;
 }
 const { lang, title, description, path, alternates, jsonld = [], noindex = false } = Astro.props;
-const canonical = new URL(path, SITE.url).href;
-const ogImage = new URL(lang === 'ca' ? '/og-ca.png' : '/og-es.png', SITE.url).href;
+const canonical = absolute(path);
+const ogImage = absolute(lang === 'ca' ? '/og-ca.png' : '/og-es.png');
 const fullTitle = title.includes(SITE.name) ? title : `${title} · ${SITE.name}`;
 ---
 <!doctype html>
@@ -27,23 +28,23 @@ const fullTitle = title.includes(SITE.name) ? title : `${title} · ${SITE.name}`
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
-    {noindex && <meta name="robots" content="noindex" />}
+    {(noindex || PREVIEW) && <meta name="robots" content="noindex" />}
     {alternates && (
       <>
-        <link rel="alternate" hreflang="es-ES" href={new URL(alternates.es, SITE.url).href} />
-        <link rel="alternate" hreflang="ca-ES" href={new URL(alternates.ca, SITE.url).href} />
-        <link rel="alternate" hreflang="x-default" href={new URL(alternates.es, SITE.url).href} />
+        <link rel="alternate" hreflang="es-ES" href={absolute(alternates.es)} />
+        <link rel="alternate" hreflang="ca-ES" href={absolute(alternates.ca)} />
+        <link rel="alternate" hreflang="x-default" href={absolute(alternates.es)} />
       </>
     )}
     <meta name="theme-color" content="#2a2a26" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#151513" media="(prefers-color-scheme: dark)" />
     <link rel="preload" href={jostLatin} as="font" type="font/woff2" crossorigin />
     <meta name="color-scheme" content="light dark" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
+    <link rel="icon" href={withBase('/favicon-32.png')} sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href={withBase('/apple-touch-icon.png')} />
+    <link rel="manifest" href={withBase('/manifest.webmanifest')} />
+    <link rel="sitemap" href={withBase('/sitemap-index.xml')} />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content={SITE.name} />

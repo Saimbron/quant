@@ -1,6 +1,7 @@
 ---
 import { T, ROUTES, CALCS } from '../lib/i18n.js';
 import { SITE, ADS_ON } from '../config.js';
+import { withBase } from '../lib/paths.js';
 interface Props { lang: 'es' | 'ca' }
 const { lang } = Astro.props;
 const t = T[lang];
@@ -10,12 +11,12 @@ const updated = new Date(SITE.updated).toLocaleDateString(t.locale, { day: 'nume
 <footer class="footer">
   <div class="tile tile-statement">
     <p>{f.statement}</p>
-    <p class="legal">© 2026 {SITE.name} · {ADS_ON ? f.rightsAds : f.rights} <a class="link" href={ROUTES[lang].legal}>{f.legal}</a>{ADS_ON && <> · <button type="button" class="link link-button" data-privacy-prefs>{f.privacyPrefs}</button></>}</p>
+    <p class="legal">© 2026 {SITE.name} · {ADS_ON ? f.rightsAds : f.rights} <a class="link" href={withBase(ROUTES[lang].legal)}>{f.legal}</a>{ADS_ON && <> · <button type="button" class="link link-button" data-privacy-prefs>{f.privacyPrefs}</button></>}</p>
   </div>
   <nav class="tile tile-nav" aria-labelledby="fn-h">
     <h2 id="fn-h">{f.navTitle}</h2>
     <ul>
-      {CALCS.map((k) => <li><a class="link" href={ROUTES[lang][k]}>{t.nav[k]}</a></li>)}
+      {CALCS.map((k) => <li><a class="link" href={withBase(ROUTES[lang][k])}>{t.nav[k]}</a></li>)}
     </ul>
   </nav>
   <div class="tile tile-time">
@@ -27,7 +28,7 @@ const updated = new Date(SITE.updated).toLocaleDateString(t.locale, { day: 'nume
     <a class="link" href={`mailto:${SITE.email}`}>{SITE.email}</a>
   </div>
   <div class="tile tile-word" aria-hidden="true"><span data-wordmark>{[...'Quant'].map((ch) => <span class="ch"><span>{ch}</span></span>)}</span></div>
-  <a class="tile tile-cta" href={ROUTES[lang].sueldo}>
+  <a class="tile tile-cta" href={withBase(ROUTES[lang].sueldo)}>
     <p>{f.cta}</p>
     <svg viewBox="0 0 56 56" aria-hidden="true"><path d="M14 42L42 14M20 14h22v22" fill="none" stroke="currentColor" stroke-width="4" /></svg>
   </a>

@@ -1,13 +1,14 @@
 ---
 import { T, ROUTES, CALCS } from '../lib/i18n.js';
+import { withBase } from '../lib/paths.js';
 interface Props { lang: 'es' | 'ca'; calc?: string }
 const { lang, calc } = Astro.props;
 const t = T[lang];
 const other = lang === 'es' ? 'ca' : 'es';
-const otherHref = ROUTES[other][calc && calc in ROUTES[other] ? calc : 'sueldo'];
+const otherHref = withBase(ROUTES[other][calc && calc in ROUTES[other] ? calc : 'sueldo']);
 ---
 <div class="bar">
-  <a class="wordmark" href={ROUTES[lang].sueldo} aria-label="Quant" translate="no">
+  <a class="wordmark" href={withBase(ROUTES[lang].sueldo)} aria-label="Quant" translate="no">
     <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" fill="#f5f0e4" /><path d="M8 9h16M8 15h16M8 21h10" stroke="#2a2a26" stroke-width="2.5" /><path d="M21 19l5 5" stroke="#4f6238" stroke-width="3" /></svg>
     Quant
   </a>
@@ -18,7 +19,7 @@ const otherHref = ROUTES[other][calc && calc in ROUTES[other] ? calc : 'sueldo']
 </div>
 <nav class="tabs" aria-label={lang === 'ca' ? 'Calculadores' : 'Calculadoras'}>
   {CALCS.map((k, i) => (
-    <a class="tab" href={ROUTES[lang][k]} aria-current={k === calc ? 'page' : undefined} style={`--i:${i}`}>
+    <a class="tab" href={withBase(ROUTES[lang][k])} aria-current={k === calc ? 'page' : undefined} style={`--i:${i}`}>
       <strong>{t.nav[k]}</strong>
       <span>{t.navSub[k]}</span>
     </a>

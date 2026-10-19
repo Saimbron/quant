@@ -3,10 +3,14 @@ import sitemap from '@astrojs/sitemap';
 import { SITE } from './src/config.js';
 import { ROUTES } from './src/lib/i18n.js';
 
-const PAIRS = Object.keys(ROUTES.es).map((k) => [ROUTES.es[k], ROUTES.ca[k]]);
+// BASE_PATH and SITE_URL are only set for the GitHub Pages preview (see .github/workflows)
+const BASE = (process.env.BASE_PATH || '/').replace(/\/$/, '');
+const ORIGIN = process.env.SITE_URL || SITE.url;
+const PAIRS = Object.keys(ROUTES.es).map((k) => [BASE + ROUTES.es[k], BASE + ROUTES.ca[k]]);
 
 export default defineConfig({
-  site: SITE.url,
+  site: ORIGIN,
+  base: process.env.BASE_PATH || '/',
   trailingSlash: 'always',
   build: { format: 'directory', inlineStylesheets: 'auto' },
   prefetch: { prefetchAll: true, defaultStrategy: 'hover' },
@@ -18,8 +22,8 @@ export default defineConfig({
         const pair = PAIRS.find(([es, ca]) => es === path || ca === path);
         if (pair) {
           item.links = [
-            { lang: 'es-ES', url: new URL(pair[0], SITE.url).href },
-            { lang: 'ca-ES', url: new URL(pair[1], SITE.url).href },
+            { lang: 'es-ES', url: new URL(pair[0], ORIGIN).href },
+            { lang: 'ca-ES', url: new URL(pair[1], ORIGIN).href },
           ];
         }
         item.lastmod = SITE.updated;

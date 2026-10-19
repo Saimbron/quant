@@ -10,6 +10,7 @@ import { T, ROUTES, CALCS } from '../lib/i18n.js';
 import { DEFAULTS, compute, split } from '../lib/calcs.js';
 import { sueldoNeto, TRAMOS_AUTONOMOS, TIPO_AUTONOMOS } from '../lib/tax.js';
 import { SITE } from '../config.js';
+import { absolute } from '../lib/paths.js';
 
 interface Props { lang: 'es' | 'ca'; calc: 'sueldo' | 'autonomos' | 'factura' | 'hora' }
 const { lang, calc } = Astro.props;
@@ -25,7 +26,7 @@ const path = ROUTES[lang][calc];
 const alternates = { es: ROUTES.es[calc], ca: ROUTES.ca[calc] };
 const resultUnit = calc === 'hora' ? '/h' : '';
 
-const pageUrl = new URL(path, SITE.url).href;
+const pageUrl = absolute(path);
 const jsonld = [
   {
     '@context': 'https://schema.org',

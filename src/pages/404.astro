@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
 import { T, ROUTES } from '../lib/i18n.js';
+import { withBase } from '../lib/paths.js';
 const t = T.es.notFound;
 const c = T.ca.notFound;
 ---
@@ -14,8 +15,8 @@ const c = T.ca.notFound;
         <h1 style="font-size:var(--step-lead);font-weight:500">{t.text}</h1>
         <p lang="ca" style="color:var(--night-muted)">{c.text}</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <a class="button" href={ROUTES.es.sueldo}>{t.cta}</a>
-          <a class="button" style="background:var(--night-2);color:var(--night-ink)" href={ROUTES.ca.sueldo} lang="ca">{c.cta}</a>
+          <a class="button" href={withBase(ROUTES.es.sueldo)}>{t.cta}</a>
+          <a class="button" style="background:var(--night-2);color:var(--night-ink)" href={withBase(ROUTES.ca.sueldo)} lang="ca">{c.cta}</a>
         </div>
       </div>
     </div>

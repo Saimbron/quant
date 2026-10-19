@@ -1,7 +1,9 @@
-import { SITE } from '../config.js';
+import { absolute, PREVIEW } from '../lib/paths.js';
 
 export function GET() {
-  return new Response(`User-agent: *\nAllow: /\n\nSitemap: ${new URL('/sitemap-index.xml', SITE.url).href}\n`, {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-  });
+  // The preview stays out of search engines; the real domain is open and lists its sitemap
+  const body = PREVIEW
+    ? 'User-agent: *\nDisallow: /\n'
+    : `User-agent: *\nAllow: /\n\nSitemap: ${absolute('/sitemap-index.xml')}\n`;
+  return new Response(body, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }
