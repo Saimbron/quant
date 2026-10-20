@@ -1,17 +1,20 @@
 # Quant: calculadores de sou i autònoms (2026)
 
-Web estàtica (Astro 5) amb quatre calculadores, en castellà i català:
+Web estàtica (Astro) amb set calculadores, en castellà i català:
 
 | Pàgina | Castellà | Català |
 |---|---|---|
 | Sou net | `/` | `/ca/` |
+| Quitança (finiquito) i indemnització | `/finiquito-indemnizacion/` | `/ca/quitanca-indemnitzacio/` |
+| Prestació d'atur | `/prestacion-paro/` | `/ca/prestacio-atur/` |
 | Quota d'autònoms | `/cuota-autonomos/` | `/ca/quota-autonoms/` |
 | Factura amb IVA i IRPF | `/factura-iva-irpf/` | `/ca/factura-iva-irpf/` |
 | Preu per hora | `/precio-hora-freelance/` | `/ca/preu-hora-freelance/` |
+| Assalariat o autònom | `/asalariado-o-autonomo/` | `/ca/assalariat-o-autonom/` |
 
 ## Tecnologia
 
-- **Astro 5**: genera pàgines estàtiques (ràpides i bones per a Google).
+- **Astro**: genera pàgines estàtiques (ràpides i bones per a Google).
 - **Three.js**: les monedes 3D de la portada (`src/scripts/coins.js`). Es carrega quan la pàgina ja està llesta, només si hi ha WebGL; sense, la web funciona igual.
 - **GSAP + ScrollTrigger**: animacions lligades al scroll (`src/scripts/motion.js`). No es carrega si el visitant demana menys moviment.
 - CSS i JavaScript propis per a la resta (càlcul en directe, comptador de xifres, transicions entre calculadores).
@@ -21,7 +24,7 @@ Web estàtica (Astro 5) amb quatre calculadores, en castellà i català:
 ```bash
 npm install
 npm run dev      # http://localhost:4321
-npm test         # 13 proves de la lògica fiscal (algorisme AEAT 2026)
+npm test         # 18 proves de la lògica fiscal i laboral (AEAT 2026, ET, LGSS)
 npm run build    # genera dist/
 ```
 

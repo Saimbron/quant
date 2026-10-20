@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sueldoNeto, retencionIRPF, cuotaAutonomo, factura, precioHora, escala, netoAutonomo, tramoAutonomo, facturacionNecesaria,
+  finiquito, mesesServicio, parseDate, prestacionParo, duracionParo, asalariadoOAutonomo,
 } from '../src/lib/tax.js';
 
 test('escala', () => {
@@ -88,4 +89,66 @@ test('precio hora: mínimo real pese a los saltos de tramo', () => {
 test('precio hora con objetivo 0 cubre los gastos', () => {
   const p = precioHora({ netoMes: 0, gastosMes: 250 });
   assert.ok(p.facturacion > 0 && p.neto >= -0.01);
+});
+
+test('finiquito: liquidación e indemnización improcedente', () => {
+  const r = finiquito({ bruto: 28000, alta: '2021-03-01', baja: '2026-10-31', motivo: 'improcedente', pagas: 14, vacaciones: 15 });
+  assert.equal(r.meses, 68);
+  assert.equal(r.salario, 2000); // mes entero: una mensualidad
+  assert.equal(r.vacDias, 9.99); // 30 × 304 / 365 − 15
+  assert.equal(r.pagasPend, 1.17); // Navidad 304/365 + verano 123/365
+  assert.equal(r.diasIndem, 187); // 33 × 68 / 12
+  assert.equal(r.indemnizacion, 14345.21);
+  assert.equal(r.total, 19351.21);
+});
+
+test('finiquito: antigüedad anterior a 2012 y topes', () => {
+  // Parte a 45 días y parte a 33, por debajo de 720 días
+  assert.equal(finiquito({ bruto: 28000, alta: '2008-05-10', baja: '2026-10-15', motivo: 'improcedente' }).diasIndem, 659.25);
+  // Más de 720 días antes de 2012: se queda lo generado a 45 días, sin sumar más
+  const viejo = finiquito({ bruto: 40000, alta: '1995-01-01', baja: '2026-10-31', motivo: 'improcedente' });
+  assert.equal(viejo.diasIndem, 772.5);
+  // Objetivo: tope de 12 mensualidades (360 días)
+  const obj = finiquito({ bruto: 30000, alta: '1990-01-01', baja: '2026-10-31', motivo: 'objetivo' });
+  assert.equal(obj.diasIndem, 360);
+  assert.ok(obj.topeAplicado);
+  assert.equal(finiquito({ bruto: 30000, alta: '2015-01-01', baja: '2026-10-31', motivo: 'voluntaria' }).indemnizacion, 0);
+});
+
+test('finiquito: fechas y meses de servicio', () => {
+  assert.equal(mesesServicio(Date.UTC(2021, 2, 15), Date.UTC(2026, 10, 1)), 68); // el mes empezado cuenta
+  assert.equal(parseDate('2026-02-30'), null);
+  assert.equal(parseDate('<script>'), null);
+  const mitad = finiquito({ bruto: 30000, alta: '2020-01-01', baja: '2026-10-15', pagas: 12 });
+  assert.equal(mitad.diasUltimoMes, 15);
+  assert.equal(mitad.pagasImporte, 0); // con 12 pagas ya se cobran cada mes
+  // Alta posterior a la baja: cuenta como un solo día trabajado
+  const alReves = finiquito({ bruto: 30000, alta: '2027-01-01', baja: '2026-10-31' });
+  assert.equal(alReves.meses, 1);
+  assert.equal(alReves.diasIndem, 2.75); // un mes empezado: 33 / 12
+  assert.ok(Number.isFinite(finiquito({ bruto: 'x', alta: 'x', baja: 'x' }).total));
+});
+
+test('paro: duración, porcentajes y topes', () => {
+  assert.equal(duracionParo(359), 0);
+  assert.equal(duracionParo(360), 120);
+  assert.equal(duracionParo(1080), 360);
+  assert.equal(duracionParo(2500), 720);
+  const r = prestacionParo({ bruto: 24000, meses: 36, hijos: 0 });
+  assert.equal(r.base, 2000);
+  assert.equal(r.bruto70, 1225); // tope sin hijos: 175 % del IPREM más 1/6
+  assert.equal(r.bruto60, 1200);
+  assert.equal(r.cotizacion, 97); // 4,85 % de la base
+  assert.equal(r.total, 13386);
+  assert.equal(prestacionParo({ bruto: 60000, meses: 72, hijos: 2 }).bruto70, 1575);
+  assert.equal(prestacionParo({ bruto: 9000, meses: 24, hijos: 1 }).bruto70, 749); // mínimo con hijos
+  assert.equal(prestacionParo({ bruto: 24000, meses: 6 }).total, 0);
+});
+
+test('asalariado o autónomo: misma cifra neta', () => {
+  const r = asalariadoOAutonomo({ bruto: 30000, gastos: 150 });
+  assert.ok(r.ok);
+  assert.ok(Math.abs(r.netoAutonomo - r.netoAsalariado) < 0.05, `${r.netoAutonomo} vs ${r.netoAsalariado}`);
+  assert.ok(r.facturacion > r.bruto && r.facturacion < r.coste);
+  assert.ok(Math.abs(r.coste - 39195) < 0.01); // 30.000 + 30,65 % de la empresa
 });

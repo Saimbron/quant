@@ -8,7 +8,7 @@ import { mkdirSync } from 'node:fs';
 const BASE = 'http://localhost:4321';
 const OUT = new URL('./shots/', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
 mkdirSync(OUT, { recursive: true });
-const pages = ['/', '/cuota-autonomos/', '/factura-iva-irpf/', '/precio-hora-freelance/', '/ca/', '/ca/preu-hora-freelance/', '/legal/'];
+const pages = ['/', '/finiquito-indemnizacion/', '/prestacion-paro/', '/cuota-autonomos/', '/factura-iva-irpf/', '/precio-hora-freelance/', '/asalariado-o-autonomo/', '/ca/', '/ca/quitanca-indemnitzacio/', '/ca/prestacio-atur/', '/ca/preu-hora-freelance/', '/ca/assalariat-o-autonom/', '/legal/'];
 const b = await Browser.launch();
 const results = [];
 const res = () => document.querySelector('[data-result-text]')?.textContent;
@@ -62,7 +62,7 @@ try {
     out.figDays = document.querySelector('[data-fig-days]').textContent;
     document.querySelectorAll('[data-faq-q]')[2].click(); await wait(300);
     out.faqA11y = getComputedStyle(document.querySelector('[data-faq-a="2"]')).display !== 'none';
-    document.querySelector('[data-use="20000"]').click(); await wait(600);
+    [...document.querySelectorAll('[data-use]')].find((b) => JSON.parse(b.dataset.use).bruto === 20000).click(); await wait(600);
     out.afterUse = res() + ' / ' + document.querySelector('[name="bruto"]').value + ' / focus:' + document.activeElement.name;
     out.dockInert = document.querySelector('[data-dock]').inert;
     await wait(1200);
@@ -78,7 +78,7 @@ try {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const i = document.querySelector('[name="ingresos"]');
     i.value = '800'; i.dispatchEvent(new Event('input', { bubbles: true })); await wait(300);
-    const yours = document.querySelector('.band.is-yours')?.dataset.tramo;
+    const yours = document.querySelector('.band.is-yours')?.dataset.mark;
     document.querySelector('[name="tarifaPlana"]').click(); await wait(400);
     const plana = document.querySelector('[data-result-text]').textContent;
     document.querySelector('.tab[href="/factura-iva-irpf/"]').click(); await wait(1800);

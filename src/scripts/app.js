@@ -1,5 +1,5 @@
 import { compute, fill, split, makeFormat } from '../lib/calcs.js';
-import { LIMITS } from '../lib/tax.js';
+import { LIMITS, MOTIVOS, parseDate } from '../lib/tax.js';
 
 const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const STORE = 'quant:v2:';
@@ -21,9 +21,15 @@ const SCHEMA = {
     bruto: ['money'], pagas: ['enum', ['14', '12']], contrato: ['enum', ['indefinido', 'temporal']],
     hijos: ['int', 0, LIMITS.hijos], menores3: ['int', 0, LIMITS.hijos], compartidos: ['bool'], situacion: ['enum', ['3', '2', '1']],
   },
+  finiquito: {
+    bruto: ['money'], alta: ['date'], baja: ['date'], motivo: ['enum', Object.keys(MOTIVOS)],
+    pagas: ['enum', ['14', '12']], vacaciones: ['int', 0, 30],
+  },
+  paro: { bruto: ['money'], meses: ['int', 12, 72], hijos: ['enum', ['0', '1', '2']] },
   autonomos: { ingresos: ['money'], gastos: ['money'], tarifaPlana: ['bool'], societario: ['bool'] },
   factura: { importe: ['money'], modo: ['enum', ['base', 'total']], iva: ['enum', ['21', '10', '4', '0']], irpf: ['enum', ['15', '7', '0']] },
   hora: { netoMes: ['money'], gastosMes: ['money'], horasSemana: ['int', 5, 60], semanasLibres: ['int', 0, 20], tarifaPlana: ['bool'] },
+  comparar: { bruto: ['money'], gastos: ['money'], tarifaPlana: ['bool'] },
 };
 
 // Accepts Spanish format ("30.000,50", "30.000") and plain numbers ("30000.5")
@@ -50,6 +56,7 @@ function sanitize(calc, raw) {
     else if (type === 'int') { const n = Math.trunc(Number(v)); if (Number.isFinite(n)) out[key] = Math.min(b, Math.max(a, n)); }
     else if (type === 'enum') { if (a.includes(String(v))) out[key] = String(v); }
     else if (type === 'bool') out[key] = toBool(v);
+    else if (type === 'date') { if (parseDate(v) !== null) out[key] = String(v); }
   }
   if ('menores3' in out) out.menores3 = Math.min(out.menores3, out.hijos ?? 0);
   return out;
@@ -115,6 +122,12 @@ function webglOK() {
     const c = document.createElement('canvas');
     return !!(c.getContext('webgl2') || c.getContext('webgl'));
   } catch { return false; }
+}
+
+// Today's date in the visitor's time zone, as a date input wants it
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const whenIdle = (fn, timeout = 1200) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout }) : setTimeout(fn, 500));
@@ -203,7 +216,12 @@ export function boot() {
 
   const shared = sanitize(calc, readShared());
   if (Object.keys(shared).length) { writeForm(shared); sharedPending = true; }
-  else { const stored = sanitize(calc, readStore(calc)); if (Object.keys(stored).length) writeForm(stored); }
+  else {
+    const stored = sanitize(calc, readStore(calc));
+    if (Object.keys(stored).length) writeForm(stored);
+    // First visit: a leaving date usually means today
+    else form.querySelectorAll('[data-today]').forEach((el) => { el.value = today(); });
+  }
   form.querySelectorAll('[data-sync]').forEach(setPct);
 
   // ---------- Render ----------
@@ -255,9 +273,10 @@ export function boot() {
     hero.querySelectorAll('[data-when="hijos"]').forEach((el) => { el.hidden = !(s.hijos > 0); });
     hero.querySelectorAll('[data-when="extra"]').forEach((el) => { el.hidden = s.pagas !== '14'; });
     hero.querySelectorAll('[data-when="solidaridad"]').forEach((el) => { el.hidden = !(r.raw.lineas?.solidaridad > 0); });
+    for (const [k, on] of Object.entries(r.when ?? {})) hero.querySelectorAll(`[data-when="${k}"]`).forEach((el) => { el.hidden = !on; });
 
     if (r.stages) renderStages(r);
-    if (calc === 'autonomos') markTramo(r.tramo);
+    if (r.mark !== undefined) markRows(r.mark);
     syncFigure(s);
     writeStore(calc, s);
     return { s, r };
@@ -288,6 +307,11 @@ export function boot() {
   form.addEventListener('focusout', (e) => {
     const el = e.target;
     if (el.dataset && el.dataset.money !== undefined) el.value = fmt0.format(Math.min(LIMITS.money, parseMoney(el.value)));
+    // A cleared date would be calculated with a fallback the visitor cannot see: put a real one back
+    if (el.type === 'date' && parseDate(el.value) === null) {
+      el.value = el.dataset.today !== undefined ? today() : el.defaultValue;
+      render();
+    }
   });
 
   form.querySelectorAll('[data-money]').forEach((el) => {
@@ -442,29 +466,36 @@ export function boot() {
     fig.addEventListener('input', () => { figTouched = true; setPct(fig); paintFigure(readForm(), +fig.value); });
   }
 
-  // ---------- Table "use" buttons: load the row with the table's own assumptions ----------
+  // ---------- Table "use" buttons: each carries the state it loads, with the table's own assumptions ----------
   document.querySelectorAll('[data-use]').forEach((b) => {
     b.addEventListener('click', () => {
-      writeForm({ bruto: b.dataset.use, pagas: b.dataset.pagas, contrato: 'indefinido', hijos: 0, menores3: 0, situacion: '3', compartidos: true });
+      let state;
+      try { state = sanitize(calc, JSON.parse(b.dataset.use)); } catch { return; }
+      writeForm(state);
       figTouched = false;
       consumeShared();
       render();
       hero.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth' });
-      form.querySelector('[name="bruto"]')?.focus({ preventScroll: true });
+      const first = form.querySelector(`[name="${Object.keys(state)[0]}"]`);
+      const target = first?.type === 'hidden' ? first.closest('[data-stepper]')?.querySelector('button') : first;
+      target?.focus({ preventScroll: true });
     });
   });
 
-  function markTramo(idx) {
-    const yours = document.documentElement.lang === 'ca' ? 'El teu tram' : 'Tu tramo';
-    document.querySelectorAll('[data-tramo]').forEach((b) => {
-      const on = +b.dataset.tramo === idx;
-      b.classList.toggle('is-yours', on);
-      const tag = b.querySelector('.tag');
-      if (tag) tag.textContent = on ? yours : '';
+  // Highlights the table row that matches the result, and shows its tab if it lives in a hidden one
+  function markRows(key) {
+    document.querySelectorAll('[data-mark]').forEach((row) => {
+      const on = row.dataset.mark === String(key);
+      row.classList.toggle('is-yours', on);
+      const tag = row.querySelector('.tag');
+      if (tag) tag.textContent = on ? row.closest('[data-yours]')?.dataset.yours ?? '' : '';
+      if (!on) return;
+      const panel = row.closest('[role="tabpanel"]');
+      const box = panel?.closest('[data-tabs]');
+      if (!panel || !box?._select) return;
+      const i = [...box.querySelectorAll('[role="tabpanel"]')].indexOf(panel);
+      if (box._current !== i) box._select(i, false);
     });
-    const want = idx < 3 ? 0 : 1;
-    const tabsBox = document.querySelector('[data-tabs]');
-    if (tabsBox && tabsBox._select && tabsBox._current !== want) tabsBox._select(want, false);
   }
 
   // ---------- 3D coins: loaded on idle, only where WebGL works ----------

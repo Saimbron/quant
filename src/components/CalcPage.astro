@@ -7,12 +7,12 @@ import Stages from './Stages.astro';
 import World from './World.astro';
 import AdSlot from './AdSlot.astro';
 import { T, ROUTES, CALCS } from '../lib/i18n.js';
-import { DEFAULTS, compute, split } from '../lib/calcs.js';
-import { sueldoNeto, TRAMOS_AUTONOMOS, TIPO_AUTONOMOS } from '../lib/tax.js';
+import { DEFAULTS, compute, split, fill, makeFormat } from '../lib/calcs.js';
+import { sueldoNeto, asalariadoOAutonomo, TRAMOS_AUTONOMOS, TIPO_AUTONOMOS, DURACION_PARO } from '../lib/tax.js';
 import { SITE } from '../config.js';
 import { absolute } from '../lib/paths.js';
 
-interface Props { lang: 'es' | 'ca'; calc: 'sueldo' | 'autonomos' | 'factura' | 'hora' }
+interface Props { lang: 'es' | 'ca'; calc: 'sueldo' | 'finiquito' | 'paro' | 'autonomos' | 'factura' | 'hora' | 'comparar' }
 const { lang, calc } = Astro.props;
 const t = T[lang];
 const c = t[calc];
@@ -52,6 +52,15 @@ const jsonld = [
 // Salary table (built at compile time)
 const tableRows = [16000, 18000, 20000, 22000, 24000, 26000, 28000, 30000, 33000, 36000, 40000, 45000, 50000, 60000, 75000];
 const table = (pagas: number) => tableRows.map((b) => ({ b, ...sueldoNeto({ bruto: b, pagas }) }));
+const use = (state: object) => JSON.stringify(state);
+const when = (key: string) => !(r.when && r.when[key]);
+
+// Freelance equivalent of each salary, with the defaults the table note states
+const compareRows = calc === 'comparar'
+  ? [18000, 20000, 22000, 25000, 28000, 30000, 33000, 36000, 40000, 45000, 50000, 60000]
+    .map((b) => ({ b, ...asalariadoOAutonomo({ bruto: b, gastos: DEFAULTS.comparar.gastos }) }))
+  : [];
+const pct1 = makeFormat(t.locale).pct;
 ---
 <Base lang={lang} title={c.title} description={c.description} path={path} alternates={alternates} jsonld={jsonld}>
   <a class="skip" href="#calc">{t.skip}</a>
@@ -122,6 +131,89 @@ const table = (pagas: number) => tableRows.map((b) => ({ b, ...sueldoNeto({ brut
                     </div>
                   </div>
                 </details>
+              </>
+            )}
+
+            {calc === 'finiquito' && (
+              <>
+                <div class="field">
+                  <label for="f-bruto">{c.fields.bruto}</label>
+                  <div class="money"><input id="f-bruto" name="bruto" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.bruto)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.bruto} min="12000" max="120000" step="500" value={s.bruto} data-sync="bruto" />
+                </div>
+                <div class="dates">
+                  <div class="field">
+                    <label for="f-alta">{c.fields.alta}</label>
+                    <input class="date" type="date" id="f-alta" name="alta" value={s.alta} min="1950-01-01" max="2100-12-31" />
+                  </div>
+                  <div class="field">
+                    <label for="f-baja">{c.fields.baja}</label>
+                    <input class="date" type="date" id="f-baja" name="baja" value={s.baja} min="1950-01-01" max="2100-12-31" data-today />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="f-motivo">{c.fields.motivo}</label>
+                  <select class="select" id="f-motivo" name="motivo">
+                    {Object.entries(c.fields.motivos).map(([k, v]) => <option value={k} selected={k === s.motivo}>{v}</option>)}
+                  </select>
+                </div>
+                <fieldset class="field">
+                  <legend>{c.fields.pagas}</legend>
+                  <div class="segmented">
+                    <label><input type="radio" name="pagas" value="14" checked /><span>14</span></label>
+                    <label><input type="radio" name="pagas" value="12" /><span>{c.fields.pagas12}</span></label>
+                  </div>
+                </fieldset>
+                <div class="field">
+                  <label id="l-vac">{c.fields.vacaciones}</label>
+                  <div class="stepper" data-stepper="vacaciones" role="group" aria-labelledby="l-vac">
+                    <button type="button" data-step="-1" aria-label="−1">−</button>
+                    <output name="vacaciones-out" aria-live="polite">{s.vacaciones}</output>
+                    <button type="button" data-step="1" aria-label="+1">+</button>
+                    <input type="hidden" name="vacaciones" value={s.vacaciones} data-min="0" data-max="30" />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {calc === 'paro' && (
+              <>
+                <div class="field">
+                  <label for="f-bruto">{c.fields.bruto}</label>
+                  <div class="money"><input id="f-bruto" name="bruto" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.bruto)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.bruto} min="12000" max="80000" step="500" value={s.bruto} data-sync="bruto" />
+                </div>
+                <div class="field">
+                  <label id="l-meses">{c.fields.meses}</label>
+                  <div class="stepper" data-stepper="meses" role="group" aria-labelledby="l-meses">
+                    <button type="button" data-step="-6" aria-label="−6">−</button>
+                    <output name="meses-out" aria-live="polite">{s.meses}</output>
+                    <button type="button" data-step="6" aria-label="+6">+</button>
+                    <input type="hidden" name="meses" value={s.meses} data-min="12" data-max="72" />
+                  </div>
+                </div>
+                <fieldset class="field">
+                  <legend>{c.fields.hijos}</legend>
+                  <div class="segmented">
+                    {c.fields.hijosOpts.map((label, i) => <label><input type="radio" name="hijos" value={i} checked={i === s.hijos} /><span>{label}</span></label>)}
+                  </div>
+                </fieldset>
+              </>
+            )}
+
+            {calc === 'comparar' && (
+              <>
+                <div class="field">
+                  <label for="f-bruto">{c.fields.bruto}</label>
+                  <div class="money"><input id="f-bruto" name="bruto" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.bruto)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.bruto} min="15000" max="120000" step="500" value={s.bruto} data-sync="bruto" />
+                </div>
+                <div class="field">
+                  <label for="f-gastos">{c.fields.gastos}</label>
+                  <div class="money"><input id="f-gastos" name="gastos" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.gastos)} data-money /><span>€</span></div>
+                  <input type="range" aria-label={c.fields.gastos} min="0" max="2000" step="25" value={s.gastos} data-sync="gastos" />
+                </div>
+                <label class="check"><input type="checkbox" name="tarifaPlana" /><span class="switch"></span>{c.fields.tarifaPlana}</label>
               </>
             )}
 
@@ -249,6 +341,82 @@ const table = (pagas: number) => tableRows.map((b) => ({ b, ...sueldoNeto({ brut
                 </footer>
               </>
             )}
+            {calc === 'finiquito' && (
+              <>
+                <header class="doc-head"><h2>{c.doc.title}</h2><p>{c.doc.antiguedad}: <span data-out="antiguedad">{r.out.antiguedad}</span></p></header>
+                <div class="doc-group">
+                  <h3>{c.doc.liquidacion}</h3>
+                  <div class="doc-row"><span>{c.doc.salario}</span><span class="pct" data-out="salarioDias">{r.out.salarioDias}</span><span class="amt" data-out="salario">{r.out.salario}</span></div>
+                  <div class="doc-row"><span>{c.doc.vacaciones}</span><span class="pct" data-out="vacDias">{r.out.vacDias}</span><span class="amt" data-out="vacaciones">{r.out.vacaciones}</span></div>
+                  <div class="doc-row"><span>{c.doc.pagas}</span><span class="pct" data-out="pagasN">{r.out.pagasN}</span><span class="amt" data-out="pagas">{r.out.pagas}</span></div>
+                  <div class="doc-row is-strong"><span>{c.doc.totalLiq}</span><span class="pct"></span><span class="amt" data-out="liquidacion">{r.out.liquidacion}</span></div>
+                </div>
+                <div class="doc-group">
+                  <h3>{c.doc.indemGroup}</h3>
+                  <div class="doc-row"><span>{c.doc.dias}</span><span class="pct" data-out="indemPct">{r.out.indemPct}</span><span class="amt" data-out="diasIndem">{r.out.diasIndem}</span></div>
+                  <div class="doc-row is-strong"><span>{c.doc.indem}</span><span class="pct"></span><span class="amt" data-out="indemnizacion">{r.out.indemnizacion}</span></div>
+                  <p class="doc-note" data-when="tope" hidden={when('tope')}>{c.doc.tope}</p>
+                </div>
+                <footer class="doc-foot">
+                  <span class="label">{c.doc.total}</span>
+                  <p class="doc-total" data-result><span class="sr-only" data-result-text>{eur2.format(r.result)}{resultUnit}</span><span class="roll" aria-hidden="true" data-roll>{big.int}<small>{big.dec} €</small></span></p>
+                  <div class="doc-sub"><span>{c.doc.exenta}: <b data-out="exenta">{r.out.exenta}</b></span></div>
+                  <p class="doc-note">{c.doc.note}</p>
+                </footer>
+              </>
+            )}
+            {calc === 'paro' && (
+              <>
+                <header class="doc-head"><h2>{c.doc.title}</h2><p>{c.doc.period} · {t.year}</p></header>
+                <div class="doc-group">
+                  <div class="doc-row"><span>{c.doc.base}</span><span class="pct"></span><span class="amt" data-out="base">{r.out.base}</span></div>
+                  <div class="doc-row"><span>{c.doc.duracion}</span><span class="pct" data-out="duracionDias">{r.out.duracionDias}</span><span class="amt" data-out="duracion">{r.out.duracion}</span></div>
+                  <div class="doc-row"><span>{c.doc.limites}</span><span class="pct"></span><span class="amt" data-out="limites">{r.out.limites}</span></div>
+                </div>
+                <div class="doc-group">
+                  <div class="doc-row"><span>{c.doc.m16}</span><span class="pct">70 %</span><span class="amt" data-out="p70">{r.out.p70}</span></div>
+                  <div class="doc-row"><span>{c.doc.m7}</span><span class="pct">60 %</span><span class="amt" data-out="p60">{r.out.p60}</span></div>
+                  <div class="doc-row"><span>{c.doc.cotizacion}</span><span class="pct">4,85 %</span><span class="amt" data-out="cotizacion">{r.out.cotizacion}</span></div>
+                  <p class="doc-note" data-when="tope" hidden={when('tope')}>{c.doc.tope}</p>
+                  <p class="doc-note" data-when="minimo" hidden={when('minimo')}>{c.doc.minimo}</p>
+                  <p class="doc-note" data-when="sinDerecho" hidden={when('sinDerecho')}>{c.doc.sinDerecho}</p>
+                </div>
+                <footer class="doc-foot">
+                  <span class="label">{c.doc.liquido}</span>
+                  <p class="doc-total" data-result><span class="sr-only" data-result-text>{eur2.format(r.result)}{resultUnit}</span><span class="roll" aria-hidden="true" data-roll>{big.int}<small>{big.dec} €</small></span></p>
+                  <div class="doc-sub">
+                    <span>{c.doc.desde7}: <b data-out="neto60">{r.out.neto60}</b></span>
+                    <span>{c.doc.total}: <b data-out="total">{r.out.total}</b></span>
+                  </div>
+                </footer>
+              </>
+            )}
+            {calc === 'comparar' && (
+              <>
+                <header class="doc-head"><h2>{c.doc.title}</h2><p>{c.doc.period} · {t.year}</p></header>
+                <div class="doc-group">
+                  <h3>{c.doc.asalariado}</h3>
+                  <div class="doc-row"><span>{c.doc.bruto}</span><span class="pct"></span><span class="amt" data-out="bruto">{r.out.bruto}</span></div>
+                  <div class="doc-row"><span>{c.doc.coste}</span><span class="pct"></span><span class="amt" data-out="coste">{r.out.coste}</span></div>
+                  <div class="doc-row is-strong"><span>{c.doc.neto}</span><span class="pct"></span><span class="amt" data-out="neto">{r.out.neto}</span></div>
+                </div>
+                <div class="doc-group">
+                  <h3>{c.doc.autonomo}</h3>
+                  <div class="doc-row"><span>{c.doc.neto}</span><span class="pct"></span><span class="amt" data-out="neto">{r.out.neto}</span></div>
+                  <div class="doc-row"><span>{c.doc.cuota}</span><span class="pct"></span><span class="amt" data-out="cuota">{r.out.cuota}</span></div>
+                  <div class="doc-row"><span>{c.doc.irpf}</span><span class="pct"></span><span class="amt" data-out="irpf">{r.out.irpf}</span></div>
+                  <div class="doc-row"><span>{c.doc.gastos}</span><span class="pct"></span><span class="amt" data-out="gastos">{r.out.gastos}</span></div>
+                </div>
+                <footer class="doc-foot">
+                  <span class="label">{c.doc.total} · {c.doc.sinIva}</span>
+                  <p class="doc-total" data-result><span class="sr-only" data-result-text>{eur2.format(r.result)}{resultUnit}</span><span class="roll" aria-hidden="true" data-roll>{big.int}<small>{big.dec} €</small></span></p>
+                  <div class="doc-sub">
+                    <span>{c.doc.mes}: <b data-out="mes">{r.out.mes}</b></span>
+                    <span>{c.doc.extra}: <b data-out="extra">{r.out.extra}</b></span>
+                  </div>
+                </footer>
+              </>
+            )}
             {calc === 'autonomos' && (
               <>
                 <header class="doc-head"><h2>{c.doc.title}</h2><p>{c.doc.period} · {t.year}</p></header>
@@ -368,7 +536,7 @@ const table = (pagas: number) => tableRows.map((b) => ({ b, ...sueldoNeto({ brut
                     <span><span class="sr-only">{c.table.cols[1]}: </span>{eur2.format(row.netoMes)}</span>
                     <span class="soft"><span class="sr-only">{c.table.cols[2]}: </span>{row.tipoIRPF.toLocaleString(t.locale, { minimumFractionDigits: 2 })} %</span>
                     <span class="soft"><span class="sr-only">{c.table.cols[3]}: </span>{eur.format(row.netoAnual)}</span>
-                    <button type="button" data-use={row.b} data-pagas={pagas} aria-label={`${c.table.use}: ${eur.format(row.b)}, ${pagas}`}>{c.table.use}</button>
+                    <button type="button" data-use={use({ bruto: row.b, pagas: String(pagas), contrato: 'indefinido', hijos: 0, menores3: 0, situacion: '3', compartidos: true })} aria-label={`${c.table.use}: ${eur.format(row.b)}, ${pagas}`}>{c.table.use}</button>
                   </div>
                 ))}
               </div>
@@ -392,18 +560,18 @@ const table = (pagas: number) => tableRows.map((b) => ({ b, ...sueldoNeto({ brut
           </div>
           <div>
             {[[0, 3], [3, 15]].map(([a, b], i) => (
-              <div class="bands-list" role="tabpanel" id={`tp-${i}`} aria-labelledby={`tt-${i}`} hidden={i !== 1}>
+              <div class="bands-list" role="tabpanel" id={`tp-${i}`} aria-labelledby={`tt-${i}`} hidden={i !== 1} data-yours={c.bands.yours}>
                 <div class="band tramos band-head" aria-hidden="true">{c.bands.cols.map((h) => <span>{h}</span>)}<span></span></div>
                 {TRAMOS_AUTONOMOS.slice(a, b).map((tr, j) => {
                   const idx = a + j;
                   const prev = idx === 0 ? 0 : TRAMOS_AUTONOMOS[idx - 1].hasta;
                   const label = tr.hasta === Infinity ? `${c.bands.from} ${eur2.format(prev)}` : `${eur2.format(prev)} – ${eur2.format(tr.hasta)}`;
                   return (
-                    <div class={`band tramos${idx === r.tramo ? ' is-yours' : ''}`} data-tramo={idx}>
+                    <div class={`band tramos${idx === r.mark ? ' is-yours' : ''}`} data-mark={idx}>
                       <span class="big">{label}</span>
                       <span><span class="sr-only">{c.bands.cols[1]}: </span>{eur2.format(tr.base)}</span>
                       <span class="soft"><span class="sr-only">{c.bands.cols[2]}: </span>{eur2.format(tr.base * TIPO_AUTONOMOS)}</span>
-                      <span class="tag">{idx === r.tramo ? c.bands.yours : ''}</span>
+                      <span class="tag">{idx === r.mark ? c.bands.yours : ''}</span>
                     </div>
                   );
                 })}
@@ -411,6 +579,79 @@ const table = (pagas: number) => tableRows.map((b) => ({ b, ...sueldoNeto({ brut
             ))}
             <p class="bands-note">{c.bands.note}</p>
           </div>
+        </div>
+      </section>
+    )}
+
+    {calc === 'finiquito' && (
+      <section class="bands wrap" aria-labelledby="bd-h">
+        <div class="bands-head" data-reveal>
+          <h2 id="bd-h" data-lines><span class="ln"><span>{c.bands.heading[0]}</span></span><span class="ln"><span>{c.bands.heading[1]}</span></span></h2>
+        </div>
+        <div class="bands-body is-single">
+          <div class="bands-list" data-yours={c.bands.yours}>
+            <div class="band motivos band-head" aria-hidden="true">{c.bands.cols.map((h) => <span>{h}</span>)}<span></span><span></span></div>
+            {Object.entries(c.bands.rows).map(([k, [days, cap]]) => (
+              <div class={`band motivos${k === r.mark ? ' is-yours' : ''}`} data-mark={k}>
+                <span class="big">{c.fields.motivos[k]}</span>
+                <span><span class="sr-only">{c.bands.cols[1]}: </span>{days}</span>
+                <span class="soft"><span class="sr-only">{c.bands.cols[2]}: </span>{cap}</span>
+                <span class="tag">{k === r.mark ? c.bands.yours : ''}</span>
+                <button type="button" data-use={use({ motivo: k })} aria-label={`${c.bands.use}: ${c.fields.motivos[k]}`}>{c.bands.use}</button>
+              </div>
+            ))}
+          </div>
+          <p class="bands-note">{c.bands.note}</p>
+        </div>
+      </section>
+    )}
+
+    {calc === 'paro' && (
+      <section class="bands wrap" aria-labelledby="bd-h">
+        <div class="bands-head" data-reveal>
+          <h2 id="bd-h" data-lines><span class="ln"><span>{c.bands.heading[0]}</span></span><span class="ln"><span>{c.bands.heading[1]}</span></span></h2>
+        </div>
+        <div class="bands-body is-single">
+          <div class="bands-list" data-yours={c.bands.yours}>
+            <div class="band duracion band-head" aria-hidden="true">{c.bands.cols.map((h) => <span>{h}</span>)}<span></span><span></span></div>
+            {DURACION_PARO.map(([desde, dias], i) => {
+              const a = desde / 30;
+              const next = DURACION_PARO[i + 1];
+              const label = next ? fill(c.bands.range, { a, b: next[0] / 30 - 1 }) : fill(c.bands.last, { a });
+              return (
+                <div class={`band duracion${dias === r.mark ? ' is-yours' : ''}`} data-mark={dias}>
+                  <span class="big">{label}</span>
+                  <span><span class="sr-only">{c.bands.cols[1]}: </span>{fill(c.bands.months, { n: dias / 30 })}</span>
+                  <span class="tag">{dias === r.mark ? c.bands.yours : ''}</span>
+                  <button type="button" data-use={use({ meses: a })} aria-label={`${c.bands.use}: ${label}`}>{c.bands.use}</button>
+                </div>
+              );
+            })}
+          </div>
+          <p class="bands-note">{c.bands.note}</p>
+        </div>
+      </section>
+    )}
+
+    {calc === 'comparar' && (
+      <section class="bands wrap" aria-labelledby="bd-h">
+        <div class="bands-head" data-reveal>
+          <h2 id="bd-h" data-lines><span class="ln"><span>{c.bands.heading[0]}</span></span><span class="ln"><span>{c.bands.heading[1]}</span></span></h2>
+        </div>
+        <div class="bands-body is-single">
+          <div class="bands-list">
+            <div class="band compara band-head" aria-hidden="true">{c.bands.cols.map((h) => <span>{h}</span>)}<span></span></div>
+            {compareRows.map((row) => (
+              <div class="band compara" data-reveal-row>
+                <span class="big">{eur.format(row.b)}</span>
+                <span><span class="sr-only">{c.bands.cols[1]}: </span>{eur.format(row.netoAsalariado)}</span>
+                <span><span class="sr-only">{c.bands.cols[2]}: </span>{eur.format(row.facturacion)}</span>
+                <span class="soft"><span class="sr-only">{c.bands.cols[3]}: </span>+{pct1(row.extra * 100, 1)}</span>
+                <button type="button" data-use={use({ bruto: row.b, gastos: DEFAULTS.comparar.gastos, tarifaPlana: false })} aria-label={`${c.bands.use}: ${eur.format(row.b)}`}>{c.bands.use}</button>
+              </div>
+            ))}
+          </div>
+          <p class="bands-note">{c.bands.note}</p>
         </div>
       </section>
     )}

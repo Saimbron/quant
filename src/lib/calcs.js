@@ -1,10 +1,14 @@
-import { sueldoNeto, cuotaAutonomo, factura, precioHora, TIPO_AUTONOMOS } from './tax.js';
+import { sueldoNeto, cuotaAutonomo, factura, precioHora, finiquito, prestacionParo, asalariadoOAutonomo, TIPO_AUTONOMOS } from './tax.js';
+import { T } from './i18n.js';
 
 export const DEFAULTS = {
   sueldo: { bruto: 30000, pagas: 14, contrato: 'indefinido', hijos: 0, menores3: 0, compartidos: true, situacion: 3 },
+  finiquito: { bruto: 28000, alta: '2021-03-01', baja: '2026-10-31', motivo: 'improcedente', pagas: 14, vacaciones: 15 },
+  paro: { bruto: 24000, meses: 36, hijos: 0 },
   autonomos: { ingresos: 2500, gastos: 400, tarifaPlana: false, societario: false },
   factura: { importe: 1000, modo: 'base', iva: 21, irpf: 15 },
   hora: { netoMes: 2000, gastosMes: 250, horasSemana: 30, semanasLibres: 6, tarifaPlana: false },
+  comparar: { bruto: 30000, gastos: 150, tarifaPlana: false },
 };
 
 export function makeFormat(locale) {
@@ -20,8 +24,11 @@ export function makeFormat(locale) {
     num0: (n) => num0.format(n || 0),
     num2: (n) => num2.format(n || 0),
     pct,
+    num: (n, d = 2) => new Intl.NumberFormat(locale, { maximumFractionDigits: d, useGrouping: 'always' }).format(n || 0),
   };
 }
+
+const unitsFor = (locale) => T[locale.startsWith('ca') ? 'ca' : 'es'].units;
 
 // Big number split for display: integer part and cents
 export function split(n, locale) {
@@ -92,7 +99,7 @@ export function compute(calc, s, locale) {
         anual: f.eur(r.anual),
         cuotaTabla: f.eur(r.cuotaTabla),
       },
-      tramo: r.tramo,
+      mark: r.tramo,
     };
   }
   if (calc === 'factura') {
@@ -119,6 +126,122 @@ export function compute(calc, s, locale) {
         ],
         rows: [f.eur(r.base - r.retencion), f.eur(r.retencion), f.eur(r.cuotaIVA)],
         focus: [0, 2, 1, -1],
+      },
+    };
+  }
+  if (calc === 'finiquito') {
+    const u = unitsFor(locale);
+    const r = finiquito({ bruto: s.bruto, alta: s.alta, baja: s.baja, motivo: s.motivo, pagas: +s.pagas, vacaciones: +s.vacaciones });
+    const salVac = r.salario + r.vacImporte;
+    const anios = Math.floor(r.meses / 12);
+    const meses = r.meses % 12;
+    const antiguedad = [anios && `${anios} ${anios === 1 ? u.year : u.years}`, (meses || !anios) && `${meses} ${meses === 1 ? u.month : u.months}`]
+      .filter(Boolean).join(` ${u.and} `);
+    const porAnio = r.diasPorAnio ? (r.mixta ? u.mixed : `${r.diasPorAnio} ${u.perYear}`) : '—';
+    return {
+      raw: r,
+      result: r.total,
+      coins: [r.indemnizacion, salVac, r.pagasImporte],
+      out: {
+        antiguedad,
+        salario: f.eur(r.salario),
+        salarioDias: `${r.diasUltimoMes} ${u.days}`,
+        vacaciones: f.eur(r.vacImporte),
+        vacDias: `${f.num(r.vacDias)} ${u.days}`,
+        pagas: +s.pagas === 14 ? f.eur(r.pagasImporte) : '—',
+        pagasN: +s.pagas === 14 ? `${f.num(r.pagasPend)} ${u.pagas}` : '',
+        liquidacion: f.eur(r.liquidacion),
+        indemPct: porAnio,
+        indemnizacion: f.eur(r.indemnizacion),
+        diasIndem: `${f.num(r.diasIndem)} ${u.days}`,
+        exenta: f.eur(r.exenta),
+      },
+      when: { tope: r.topeAplicado },
+      mark: s.motivo,
+      stages: {
+        vars: {
+          salario: f.eur0(r.salario), dias: String(r.diasUltimoMes), vacaciones: f.eur0(r.vacImporte), vacDias: f.num(r.vacDias, 1),
+          pagas: f.eur0(r.pagasImporte), indemnizacion: f.eur0(r.indemnizacion), total: f.eur0(r.total), porAnio,
+        },
+        amounts: [r.salario, salVac, r.liquidacion, r.total].map(f.eur),
+        segs: [
+          { v: r.indemnizacion, c: 'var(--accent)' },
+          { v: salVac, c: 'var(--paper-ink)' },
+          { v: r.pagasImporte, c: 'var(--paper-muted)' },
+        ],
+        rows: [f.eur(r.indemnizacion), f.eur(salVac), f.eur(r.pagasImporte)],
+        focus: [1, 1, 2, 0],
+      },
+    };
+  }
+  if (calc === 'paro') {
+    const u = unitsFor(locale);
+    const r = prestacionParo({ bruto: s.bruto, meses: +s.meses, hijos: +s.hijos });
+    const duracion = `${r.mesesPrestacion} ${r.mesesPrestacion === 1 ? u.month : u.months}`;
+    return {
+      raw: r,
+      result: r.neto70,
+      coins: [r.total70, r.total60, r.cotizacionTotal],
+      out: {
+        base: f.eur(r.base),
+        duracion: r.dias ? duracion : '—',
+        duracionDias: r.dias ? `${r.dias} ${u.days}` : '',
+        p70: r.dias ? f.eur(r.bruto70) : '—',
+        p60: r.dias > 180 ? f.eur(r.bruto60) : '—',
+        limites: `${f.eur0(r.min)} – ${f.eur0(r.max)}`,
+        cotizacion: f.neg(r.cotizacion),
+        neto60: r.dias > 180 ? f.eur(r.neto60) : '—',
+        total: f.eur(r.total),
+      },
+      when: { sinDerecho: !r.dias, tope: r.tope === 'max', minimo: r.tope === 'min' },
+      mark: r.dias,
+      stages: {
+        vars: {
+          base: f.eur0(r.base), p70: f.eur0(r.neto70), p60: f.eur0(r.neto60), duracion: r.dias ? duracion : '0',
+          total: f.eur0(r.total), min: f.eur0(r.min), max: f.eur0(r.max),
+        },
+        amounts: [r.base, r.neto70, r.neto60, r.total].map(f.eur),
+        segs: [
+          { v: r.total70, c: 'var(--accent)' },
+          { v: r.total60, c: 'var(--paper-ink)' },
+          { v: r.cotizacionTotal, c: 'var(--paper-muted)' },
+        ],
+        rows: [f.eur(r.total70), f.eur(r.total60), f.eur(r.cotizacionTotal)],
+        focus: [-1, 0, 1, -1],
+      },
+    };
+  }
+  if (calc === 'comparar') {
+    const r = asalariadoOAutonomo({ bruto: s.bruto, gastos: s.gastos, tarifaPlana: !!s.tarifaPlana });
+    const impuestos = r.cuota + r.irpf;
+    const extra = `${r.extra < 0 ? '−' : '+'}${f.pct(Math.abs(r.extra) * 100, 1)}`;
+    return {
+      raw: r,
+      result: r.facturacion,
+      coins: [Math.max(0, r.netoAutonomo), impuestos, r.gastos],
+      out: {
+        bruto: f.eur0(r.bruto),
+        neto: f.eur0(r.netoAsalariado),
+        coste: f.eur0(r.coste),
+        cuota: f.eur0(r.cuota),
+        irpf: f.eur0(r.irpf),
+        gastos: f.eur0(r.gastos),
+        mes: r.ok ? f.eur0(r.facturacionMes) : '—',
+        extra: r.bruto > 0 ? extra : '—',
+      },
+      stages: {
+        vars: {
+          neto: f.eur0(r.netoAsalariado), bruto: f.eur0(r.bruto), impuestos: f.eur0(impuestos), gastos: f.eur0(r.gastos),
+          facturacion: f.eur0(r.facturacion), mes: f.eur0(r.facturacionMes), extra: f.pct(Math.abs(r.extra) * 100, 1), coste: f.eur0(r.coste),
+        },
+        amounts: [r.netoAsalariado, r.netoAsalariado + impuestos, r.facturacion, r.facturacionMes].map(f.eur0),
+        segs: [
+          { v: Math.max(0, r.netoAutonomo), c: 'var(--accent)' },
+          { v: impuestos, c: 'var(--paper-ink)' },
+          { v: r.gastos, c: 'var(--paper-muted)' },
+        ],
+        rows: [f.eur0(r.netoAutonomo), f.eur0(impuestos), f.eur0(r.gastos)],
+        focus: [0, 1, 2, -1],
       },
     };
   }

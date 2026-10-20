@@ -258,6 +258,172 @@ export function facturacionNecesaria(objetivo, gastosMes, tarifaPlana = false) {
   return best;
 }
 
+// ---------- Finiquito e indemnización ----------
+// Estatuto de los Trabajadores: art. 49.1.c (fin de contrato temporal, 12 días por año), art. 53.1.b
+// (despido objetivo, 20 días, tope de 12 mensualidades), art. 56.1 y DT 11.ª (improcedente: 33 días,
+// 45 por la antigüedad anterior al 12-2-2012, topes de 24 y 42 mensualidades de 30 días).
+export const MOTIVOS = {
+  improcedente: { dias: 33, tope: 720 },
+  objetivo: { dias: 20, tope: 360 },
+  temporal: { dias: 12, tope: Infinity },
+  voluntaria: { dias: 0, tope: 0 },
+  disciplinario: { dias: 0, tope: 0 },
+};
+export const EXENCION_INDEMNIZACION = 180000;
+const DAY = 86400000;
+const REFORMA_2012 = Date.UTC(2012, 1, 12);
+
+// "AAAA-MM-DD" a milisegundos UTC, o null si la fecha no existe
+export function parseDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s ?? ''));
+  if (!m) return null;
+  const [y, mo, d] = [+m[1], +m[2], +m[3]];
+  if (y < 1950 || y > 2100) return null;
+  const t = Date.UTC(y, mo - 1, d);
+  const back = new Date(t);
+  return back.getUTCMonth() === mo - 1 && back.getUTCDate() === d ? t : null;
+}
+
+// Meses de servicio entre `from` (incluido) y `to` (excluido). El mes empezado cuenta entero,
+// como prorratea el Tribunal Supremo la antigüedad para la indemnización.
+export function mesesServicio(from, to) {
+  if (to <= from) return 0;
+  const a = new Date(from);
+  const b = new Date(to);
+  const at = (n) => Date.UTC(a.getUTCFullYear(), a.getUTCMonth() + n, a.getUTCDate());
+  let meses = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+  if (at(meses) > to) meses -= 1;
+  return at(meses) < to ? meses + 1 : meses;
+}
+
+const dias = (from, to) => Math.max(0, Math.round((to - from) / DAY));
+
+export function finiquito({ bruto, alta, baja, motivo = 'improcedente', pagas = 14, vacaciones = 0 }) {
+  bruto = money(bruto);
+  pagas = +pagas === 12 ? 12 : 14;
+  const regla = MOTIVOS[motivo] ?? MOTIVOS.improcedente;
+  const fin = parseDate(baja) ?? Date.UTC(YEAR, 9, 31);
+  const ini = Math.min(parseDate(alta) ?? fin, fin);
+  const finEx = fin + DAY; // el último día también se trabaja
+  const f = new Date(fin);
+  const y = f.getUTCFullYear();
+  const mo = f.getUTCMonth();
+  const mensual = bruto / pagas;
+
+  // Salario del último mes, en mes comercial de 30 días: el mes entero vale una mensualidad
+  const inicioMes = Math.max(ini, Date.UTC(y, mo, 1));
+  const mesEntero = inicioMes === Date.UTC(y, mo, 1) && f.getUTCDate() === new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+  const diasUltimoMes = mesEntero ? 30 : Math.min(30, dias(inicioMes, finEx));
+  const salario = round2((mensual * diasUltimoMes) / 30);
+
+  // Vacaciones: 30 días naturales al año, generados en proporción a lo trabajado este año
+  const inicioAnio = Math.max(ini, Date.UTC(y, 0, 1));
+  const generadas = Math.min(30, (30 * dias(inicioAnio, finEx)) / 365);
+  const vacDias = round2(Math.max(0, generadas - int(vacaciones, 0, 30)));
+  const vacImporte = round2((vacDias * mensual) / 30);
+
+  // Pagas extra sin prorratear: la de Navidad se genera de enero a diciembre y la de verano de julio a junio
+  let pagasPend = 0;
+  if (pagas === 14) {
+    const julio = Date.UTC(mo >= 6 ? y : y - 1, 6, 1);
+    pagasPend = Math.min(1, dias(inicioAnio, finEx) / 365) + Math.min(1, dias(Math.max(ini, julio), finEx) / 365);
+  }
+  pagasPend = round2(pagasPend);
+  const pagasImporte = round2(pagasPend * mensual);
+
+  // Indemnización: días de salario por año trabajado, con el salario diario sobre 365 días
+  const meses = mesesServicio(ini, finEx);
+  let diasIndem = 0;
+  let mixta = false;
+  if (motivo === 'improcedente' && ini < REFORMA_2012) {
+    const d45 = (45 * mesesServicio(ini, Math.min(finEx, REFORMA_2012))) / 12;
+    const d33 = (33 * mesesServicio(Math.max(ini, REFORMA_2012), finEx)) / 12;
+    diasIndem = d45 > 720 ? Math.min(d45, 1260) : Math.min(d45 + d33, 720);
+    mixta = d33 > 0 && d45 <= 720;
+  } else {
+    diasIndem = Math.min((regla.dias * meses) / 12, regla.tope);
+  }
+  diasIndem = round2(diasIndem);
+  const sinTope = motivo === 'improcedente' && ini < REFORMA_2012 ? diasIndem : (regla.dias * meses) / 12;
+  const indemnizacion = round2((diasIndem * bruto) / 365);
+  const liquidacion = round2(salario + vacImporte + pagasImporte);
+  return {
+    meses, diasUltimoMes, salario, vacDias, vacImporte, pagasPend, pagasImporte, liquidacion,
+    diasPorAnio: motivo === 'improcedente' && ini < REFORMA_2012 ? 45 : regla.dias, mixta,
+    diasIndem, indemnizacion, topeAplicado: sinTope > diasIndem + 0.005,
+    exenta: Math.min(indemnizacion, EXENCION_INDEMNIZACION),
+    total: round2(liquidacion + indemnizacion),
+  };
+}
+
+// ---------- Prestación por desempleo (LGSS, arts. 269, 270 y 273) ----------
+// IPREM de 2026: 600 € al mes (prorrogado). Los topes se calculan sobre el IPREM más una sexta parte.
+export const IPREM = 600;
+const IPREM_PARO = (IPREM * 7) / 6;
+const PARO_MAX = [1.75, 2, 2.25]; // sin hijos, un hijo, dos o más
+const PARO_MIN = [0.8, 1.07, 1.07];
+export const COTIZACION_PARO = SS.comunes + SS.mei; // lo que el SEPE descuenta al beneficiario
+// [días cotizados en los últimos 6 años, días de prestación]
+export const DURACION_PARO = [
+  [360, 120], [540, 180], [720, 240], [900, 300], [1080, 360], [1260, 420],
+  [1440, 480], [1620, 540], [1800, 600], [1980, 660], [2160, 720],
+];
+
+export function duracionParo(diasCotizados) {
+  let d = 0;
+  for (const [desde, prest] of DURACION_PARO) if (diasCotizados >= desde) d = prest;
+  return d;
+}
+
+export function prestacionParo({ bruto, meses = 36, hijos = 0 }) {
+  bruto = money(bruto);
+  const h = int(hijos, 0, 2);
+  // Base reguladora: media de las bases de desempleo de los últimos 180 días, con el tope de la base máxima
+  const base = round2(Math.min(bruto / 12, SS.baseMax));
+  const max = round2(IPREM_PARO * PARO_MAX[h]);
+  const min = round2(IPREM_PARO * PARO_MIN[h]);
+  const d = duracionParo(int(meses, 0, 72) * 30);
+  const clamp = (v) => Math.min(max, Math.max(min, v));
+  const bruto70 = d ? round2(clamp(base * 0.7)) : 0;
+  const bruto60 = d > 180 ? round2(clamp(base * 0.6)) : 0;
+  const cotizacion = d ? round2(base * COTIZACION_PARO) : 0;
+  const neto70 = round2(Math.max(0, bruto70 - cotizacion));
+  const neto60 = d > 180 ? round2(Math.max(0, bruto60 - cotizacion)) : 0;
+  const meses70 = Math.min(d, 180) / 30;
+  const meses60 = Math.max(0, d - 180) / 30;
+  return {
+    base, dias: d, mesesPrestacion: d / 30, max, min,
+    bruto70, bruto60, cotizacion, neto70, neto60, meses70, meses60,
+    tope: !d ? null : base * 0.7 > max ? 'max' : base * 0.7 < min ? 'min' : null,
+    total70: round2(neto70 * meses70),
+    total60: round2(neto60 * meses60),
+    cotizacionTotal: round2(cotizacion * (d / 30)),
+    total: round2(neto70 * meses70 + neto60 * meses60),
+  };
+}
+
+// ---------- Asalariado o autónomo ----------
+// Cotización de la empresa: contingencias comunes 23,60 %, desempleo 5,50 %, FOGASA 0,20 %, FP 0,60 %
+// y MEI 0,75 %, más 5/6 de la cotización de solidaridad. Sin accidentes de trabajo, que depende de la actividad.
+const SS_EMPRESA = 0.236 + 0.055 + 0.002 + 0.006 + 0.0075;
+
+export function asalariadoOAutonomo({ bruto, gastos = 0, tarifaPlana = false }) {
+  const s = sueldoNeto({ bruto, pagas: 14 });
+  gastos = money(gastos);
+  const salarioMes = s.bruto / 12;
+  const coste = round2(s.bruto + 12 * (Math.min(salarioMes, SS.baseMax) * SS_EMPRESA + solidaridadMes(salarioMes) * 5));
+  const found = facturacionNecesaria(s.netoAnual, gastos, tarifaPlana);
+  const facturacion = found ?? 0;
+  const a = netoAutonomo(facturacion, gastos, tarifaPlana);
+  return {
+    ok: found !== null,
+    bruto: s.bruto, netoAsalariado: s.netoAnual, coste,
+    facturacion, facturacionMes: facturacion / 12,
+    cuota: a.cuotaAnual, irpf: a.irpf, gastos: gastos * 12, netoAutonomo: a.neto,
+    extra: s.bruto > 0 ? facturacion / s.bruto - 1 : 0,
+  };
+}
+
 export function precioHora({ netoMes, gastosMes = 0, horasSemana = 30, semanasLibres = 6, tarifaPlana = false }) {
   netoMes = money(netoMes);
   gastosMes = money(gastosMes);
