@@ -10,7 +10,7 @@ import { T, ROUTES, CALCS } from '../lib/i18n.js';
 import { DEFAULTS, compute, split, fill, makeFormat } from '../lib/calcs.js';
 import { sueldoNeto, asalariadoOAutonomo, TRAMOS_AUTONOMOS, TIPO_AUTONOMOS, DURACION_PARO } from '../lib/tax.js';
 import { SITE } from '../config.js';
-import { absolute } from '../lib/paths.js';
+import { absolute, withBase } from '../lib/paths.js';
 
 interface Props { lang: 'es' | 'ca'; calc: 'sueldo' | 'finiquito' | 'paro' | 'autonomos' | 'factura' | 'hora' | 'comparar' }
 const { lang, calc } = Astro.props;
@@ -303,7 +303,7 @@ const pct1 = makeFormat(t.locale).pct;
                 {t.share}
               </button>
             </div>
-            <p class="fineprint">{t.disclaimer}</p>
+            <p class="fineprint">{t.disclaimer} <a class="link" href={withBase(ROUTES[lang].metodologia)}>{t.method.link}</a></p>
           </form>
         </div>
 
@@ -338,6 +338,7 @@ const pct1 = makeFormat(t.locale).pct;
                     <span data-when="extra">{c.doc.extra}: <b data-out="extra">{r.out.extra}</b></span>
                     <span>{c.doc.anual}: <b data-out="anual">{r.out.anual}</b></span>
                   </div>
+                  <p class="doc-note">{c.doc.region}</p>
                 </footer>
               </>
             )}

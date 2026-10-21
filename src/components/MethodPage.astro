@@ -1,0 +1,167 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from './Header.astro';
+import Footer from './Footer.astro';
+import { T, ROUTES } from '../lib/i18n.js';
+import { SITE, ADS_ON } from '../config.js';
+import { absolute, withBase } from '../lib/paths.js';
+import { SS, IPREM, TARIFA_PLANA, TIPO_AUTONOMOS, BASE_MIN_SOCIETARIO, EXENCION_INDEMNIZACION, COTIZACION_PARO } from '../lib/tax.js';
+interface Props { lang: 'es' | 'ca' }
+const { lang } = Astro.props;
+const t = T[lang];
+const m = t.method;
+const es = lang === 'es';
+const eur = new Intl.NumberFormat(t.locale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, useGrouping: 'always' });
+const eur0 = new Intl.NumberFormat(t.locale, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' });
+const pct = (n: number) => `${new Intl.NumberFormat(t.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n * 100)} %`;
+const updated = new Date(SITE.updated).toLocaleDateString(t.locale, { day: 'numeric', month: 'long', year: 'numeric' });
+const ssTotal = SS.comunes + SS.desempleoIndefinido + SS.fp + SS.mei;
+const link = (k: string) => withBase(ROUTES[lang][k]);
+
+const SRC = {
+  aeat: 'https://sede.agenciatributaria.gob.es/static_files/Sede/Programas_ayuda/Retenciones/2026/Algoritmo%20Retenciones-2026_10sept.pdf',
+  et: 'https://www.boe.es/buscar/act.php?id=BOE-A-2015-11430',
+  lgss: 'https://www.boe.es/buscar/act.php?id=BOE-A-2015-11724',
+  irpf: 'https://www.boe.es/buscar/act.php?id=BOE-A-2006-20764',
+  iva: 'https://www.boe.es/buscar/act.php?id=BOE-A-1992-28740',
+  repo: 'https://github.com/Saimbron/quant',
+  tests: 'https://github.com/Saimbron/quant/blob/main/tests/tax.test.js',
+};
+
+const jsonld = [{
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  name: m.title,
+  url: absolute(ROUTES[lang].metodologia),
+  inLanguage: t.locale,
+  dateModified: SITE.updated,
+  publisher: { '@type': 'Organization', name: SITE.name, url: SITE.url, founder: { '@type': 'Person', name: SITE.owner } },
+}];
+---
+<Base lang={lang} title={m.title} description={m.description} path={ROUTES[lang].metodologia} alternates={{ es: ROUTES.es.metodologia, ca: ROUTES.ca.metodologia }} jsonld={jsonld}>
+  <section class="hero" style="padding-bottom:24px">
+    <div class="wrap"><Header lang={lang} calc="metodologia" /></div>
+  </section>
+  <main class="wrap">
+    <article class="prose">
+      <h1 class="display">{m.h1}</h1>
+      {es ? (
+        <>
+          <p class="prose-lead">Quant hace las cuentas con las normas y los parámetros oficiales de 2026. Aquí explicamos de dónde sale cada cifra, qué suponemos y qué dejamos fuera, para que puedas comprobarlo.</p>
+
+          <h2>Quién hace Quant</h2>
+          <p>Quant es un proyecto independiente de {SITE.owner}, en {SITE.city}. No vendemos productos financieros{ADS_ON ? '' : ' ni cobramos de bancos, gestorías o despachos'}, y los resultados no cambian según quién pague.{ADS_ON && ' La web se financia con anuncios de Google, que no influyen en los cálculos.'} No somos asesores: las calculadoras dan estimaciones para entender tus números, no sustituyen a un profesional.</p>
+          <p>Si encuentras un error, escríbenos a <a class="link" href={`mailto:${SITE.email}`}>{SITE.email}</a>. Lo revisamos y, si tienes razón, lo corregimos y lo apuntamos en el registro de cambios de esta página.</p>
+
+          <h2>Cómo lo comprobamos</h2>
+          <p>El código de las calculadoras es abierto y se puede leer en <a class="link" href={SRC.repo} rel="noopener" target="_blank">GitHub</a>. Cada cálculo tiene <a class="link" href={SRC.tests} rel="noopener" target="_blank">pruebas automáticas</a> con casos resueltos a mano y con los ejemplos del propio algoritmo de la Agencia Tributaria, y ningún cambio se publica si alguna falla.</p>
+
+          <h2><a class="link" href={link('sueldo')}>Sueldo neto</a></h2>
+          <ul>
+            <li>Seguridad Social del trabajador: {pct(ssTotal)} de la base con contrato indefinido ({pct(SS.comunes)} contingencias comunes, {pct(SS.desempleoIndefinido)} desempleo, {pct(SS.fp)} formación y {pct(SS.mei)} MEI), con una base máxima de {eur.format(SS.baseMax)} al mes y la cotización de solidaridad por encima.</li>
+            <li>Retención de IRPF: el <a class="link" href={SRC.aeat} rel="noopener" target="_blank">algoritmo de retenciones de la AEAT para 2026</a>, versión del 10 de septiembre, con el tipo truncado a dos decimales como hace la Agencia.</li>
+            <li><strong>Por qué no pedimos tu comunidad autónoma:</strong> la retención de la nómina se calcula igual en toda España (salvo País Vasco y Navarra). Lo que pagas de IRPF al final sí depende de tu comunidad, y la diferencia se ajusta en la declaración de la renta. Por eso otras calculadoras que dan el impuesto anual por comunidad muestran netos algo distintos.</li>
+          </ul>
+
+          <h2><a class="link" href={link('finiquito')}>Finiquito e indemnización</a></h2>
+          <ul>
+            <li>Indemnización según el <a class="link" href={SRC.et} rel="noopener" target="_blank">Estatuto de los Trabajadores</a>: 33 días por año en el despido improcedente (45 por la antigüedad anterior al 12 de febrero de 2012), con topes de 24 y 42 mensualidades; 20 días en el objetivo, con tope de 12; 12 días al terminar un contrato temporal.</li>
+            <li>Salario diario: el bruto anual entre 365. El mes empezado cuenta entero, como hace el Tribunal Supremo.</li>
+            <li>Suponemos 30 días naturales de vacaciones y que la paga de Navidad se genera de enero a diciembre y la de verano de julio a junio. Tu convenio puede decir otra cosa.</li>
+            <li>La indemnización legal está exenta de IRPF hasta {eur0.format(EXENCION_INDEMNIZACION)} (<a class="link" href={SRC.irpf} rel="noopener" target="_blank">Ley del IRPF</a>, artículo 7).</li>
+          </ul>
+
+          <h2><a class="link" href={link('paro')}>Paro</a></h2>
+          <ul>
+            <li>Duración, cuantía y topes según la <a class="link" href={SRC.lgss} rel="noopener" target="_blank">Ley General de la Seguridad Social</a>, artículos 269, 270 y 273: el 70 % de la base reguladora los primeros 180 días y el 60 % después.</li>
+            <li>Topes calculados sobre el IPREM de 2026 ({eur0.format(IPREM)} al mes) más una sexta parte.</li>
+            <li>Descontamos tu parte de la cotización, un {pct(COTIZACION_PARO)} de la base. No calculamos la retención de IRPF, que depende de tus ingresos del año.</li>
+          </ul>
+
+          <h2><a class="link" href={link('autonomos')}>Cuota de autónomos</a></h2>
+          <ul>
+            <li>Tabla de tramos de 2025 prorrogada para 2026, con un tipo total del {pct(TIPO_AUTONOMOS)} (MEI incluido).</li>
+            <li>Rendimiento: ingresos menos gastos, menos un 7 % de gastos genéricos (un 3 % si eres societario, con una base mínima de {eur.format(BASE_MIN_SOCIETARIO)}). Tarifa plana: {eur.format(TARIFA_PLANA)} al mes.</li>
+          </ul>
+
+          <h2><a class="link" href={link('factura')}>Factura</a>, <a class="link" href={link('hora')}>precio por hora</a> y <a class="link" href={link('comparar')}>asalariado o autónomo</a></h2>
+          <ul>
+            <li>IVA del 21 %, 10 % o 4 % según la <a class="link" href={SRC.iva} rel="noopener" target="_blank">Ley del IVA</a>, y retención del 15 % o del 7 % los primeros años. Cada línea se redondea al céntimo antes de sumar, para que la factura cuadre.</li>
+            <li>El IRPF del autónomo se estima en estimación directa simplificada: un 5 % de gastos de difícil justificación (hasta 2.000 €), la escala general y el mínimo personal, sin deducciones autonómicas.</li>
+            <li>Coste para la empresa: el sueldo bruto más un 30,65 % de cotización empresarial y su parte de la cotización de solidaridad. No incluye el seguro de accidentes, que depende de la actividad.</li>
+          </ul>
+
+          <h2>Lo que no calculamos</h2>
+          <p>Las deducciones autonómicas, la declaración de la renta, los regímenes forales del País Vasco y Navarra, la discapacidad, las jornadas parciales y lo que cada convenio colectivo añade. Si tu caso depende de esto, consulta a un profesional.</p>
+
+          <h2>Cuándo lo actualizamos</h2>
+          <p>Revisamos los parámetros cada enero y cada vez que el BOE publica un cambio que afecte a los cálculos. Última revisión: {updated}.</p>
+        </>
+      ) : (
+        <>
+          <p class="prose-lead">Quant fa els comptes amb les normes i els paràmetres oficials del 2026. Aquí expliquem d’on surt cada xifra, què suposem i què deixem fora, perquè ho puguis comprovar.</p>
+
+          <h2>Qui fa Quant</h2>
+          <p>Quant és un projecte independent de {SITE.owner}, a {SITE.city}. No venem productes financers{ADS_ON ? '' : ' ni cobrem de bancs, gestories o despatxos'}, i els resultats no canvien segons qui pagui.{ADS_ON && ' El web es finança amb anuncis de Google, que no influeixen en els càlculs.'} No som assessors: les calculadores donen estimacions per entendre els teus números, no substitueixen un professional.</p>
+          <p>Si trobes un error, escriu-nos a <a class="link" href={`mailto:${SITE.email}`}>{SITE.email}</a>. Ho revisem i, si tens raó, ho corregim i ho anotem al registre de canvis d’aquesta pàgina.</p>
+
+          <h2>Com ho comprovem</h2>
+          <p>El codi de les calculadores és obert i es pot llegir a <a class="link" href={SRC.repo} rel="noopener" target="_blank">GitHub</a>. Cada càlcul té <a class="link" href={SRC.tests} rel="noopener" target="_blank">proves automàtiques</a> amb casos resolts a mà i amb els exemples del mateix algorisme de l’Agència Tributària, i no es publica cap canvi si alguna falla.</p>
+
+          <h2><a class="link" href={link('sueldo')}>Sou net</a></h2>
+          <ul>
+            <li>Seguretat Social del treballador: {pct(ssTotal)} de la base amb contracte indefinit ({pct(SS.comunes)} contingències comunes, {pct(SS.desempleoIndefinido)} atur, {pct(SS.fp)} formació i {pct(SS.mei)} MEI), amb una base màxima de {eur.format(SS.baseMax)} al mes i la cotització de solidaritat per sobre.</li>
+            <li>Retenció d’IRPF: l’<a class="link" href={SRC.aeat} rel="noopener" target="_blank">algorisme de retencions de l’AEAT per al 2026</a>, versió del 10 de setembre, amb el tipus truncat a dos decimals com fa l’Agència.</li>
+            <li><strong>Per què no et demanem la comunitat autònoma:</strong> la retenció de la nòmina es calcula igual a tot Espanya (excepte al País Basc i a Navarra). El que pagues d’IRPF al final sí que depèn de la comunitat, i la diferència s’ajusta a la declaració de la renda. Per això altres calculadores que donen l’impost anual per comunitat mostren nets una mica diferents.</li>
+          </ul>
+
+          <h2><a class="link" href={link('finiquito')}>Quitança i indemnització</a></h2>
+          <ul>
+            <li>Indemnització segons l’<a class="link" href={SRC.et} rel="noopener" target="_blank">Estatut dels Treballadors</a>: 33 dies per any en l’acomiadament improcedent (45 per l’antiguitat anterior al 12 de febrer de 2012), amb límits de 24 i 42 mensualitats; 20 dies en l’objectiu, amb límit de 12; 12 dies quan s’acaba un contracte temporal.</li>
+            <li>Salari diari: el brut anual entre 365. El mes començat compta sencer, com fa el Tribunal Suprem.</li>
+            <li>Suposem 30 dies naturals de vacances i que la paga de Nadal es genera de gener a desembre i la d’estiu, de juliol a juny. El teu conveni pot dir una altra cosa.</li>
+            <li>La indemnització legal està exempta d’IRPF fins a {eur0.format(EXENCION_INDEMNIZACION)} (<a class="link" href={SRC.irpf} rel="noopener" target="_blank">Llei de l’IRPF</a>, article 7).</li>
+          </ul>
+
+          <h2><a class="link" href={link('paro')}>Atur</a></h2>
+          <ul>
+            <li>Durada, quantia i límits segons la <a class="link" href={SRC.lgss} rel="noopener" target="_blank">Llei General de la Seguretat Social</a>, articles 269, 270 i 273: el 70 % de la base reguladora els primers 180 dies i el 60 % després.</li>
+            <li>Límits calculats sobre l’IPREM del 2026 ({eur0.format(IPREM)} al mes) més una sisena part.</li>
+            <li>Descomptem la teva part de la cotització, un {pct(COTIZACION_PARO)} de la base. No calculem la retenció d’IRPF, que depèn dels ingressos de l’any.</li>
+          </ul>
+
+          <h2><a class="link" href={link('autonomos')}>Quota d’autònoms</a></h2>
+          <ul>
+            <li>Taula de trams del 2025 prorrogada per al 2026, amb un tipus total del {pct(TIPO_AUTONOMOS)} (MEI inclòs).</li>
+            <li>Rendiment: ingressos menys despeses, menys un 7 % de despeses genèriques (un 3 % si ets societari, amb una base mínima de {eur.format(BASE_MIN_SOCIETARIO)}). Tarifa plana: {eur.format(TARIFA_PLANA)} al mes.</li>
+          </ul>
+
+          <h2><a class="link" href={link('factura')}>Factura</a>, <a class="link" href={link('hora')}>preu per hora</a> i <a class="link" href={link('comparar')}>assalariat o autònom</a></h2>
+          <ul>
+            <li>IVA del 21 %, 10 % o 4 % segons la <a class="link" href={SRC.iva} rel="noopener" target="_blank">Llei de l’IVA</a>, i retenció del 15 % o del 7 % els primers anys. Cada línia s’arrodoneix al cèntim abans de sumar, perquè la factura quadri.</li>
+            <li>L’IRPF de l’autònom s’estima en estimació directa simplificada: un 5 % de despeses de difícil justificació (fins a 2.000 €), l’escala general i el mínim personal, sense deduccions autonòmiques.</li>
+            <li>Cost per a l’empresa: el sou brut més un 30,65 % de cotització empresarial i la seva part de la cotització de solidaritat. No inclou l’assegurança d’accidents, que depèn de l’activitat.</li>
+          </ul>
+
+          <h2>El que no calculem</h2>
+          <p>Les deduccions autonòmiques, la declaració de la renda, els règims forals del País Basc i Navarra, la discapacitat, les jornades parcials i el que afegeix cada conveni col·lectiu. Si el teu cas en depèn, consulta un professional.</p>
+
+          <h2>Quan ho actualitzem</h2>
+          <p>Revisem els paràmetres cada gener i cada vegada que el BOE publica un canvi que afecti els càlculs. Última revisió: {updated}.</p>
+        </>
+      )}
+
+      <h2>{m.changelog}</h2>
+      <ul class="changelog">
+        {m.changes.map(([date, text]) => (
+          <li><time datetime={date}>{new Date(date).toLocaleDateString(t.locale, { day: 'numeric', month: 'long', year: 'numeric' })}</time> {text}</li>
+        ))}
+      </ul>
+    </article>
+  </main>
+  <Footer lang={lang} />
+  <script>
+    import { boot } from '../scripts/app.js';
+    document.addEventListener('astro:page-load', boot);
+  </script>
+</Base>

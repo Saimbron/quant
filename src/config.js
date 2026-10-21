@@ -7,7 +7,7 @@ export const SITE = {
   owner: 'Àlex Cimbron Morales',
   nif: '41633576B',
   city: 'Barcelona',
-  updated: '2026-10-15',
+  updated: '2026-10-21',
 
   // Google AdSense. Con `client` vacío no se carga nada: ni anuncios, ni cookies, ni aviso.
   // Al rellenarlo se activan a la vez los anuncios, el ads.txt, la CSP de Google y el texto legal.

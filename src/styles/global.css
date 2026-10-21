@@ -527,6 +527,10 @@ details.more .stepper output { background: var(--night); }
 .prose h2 { font-size: var(--step-lead); font-weight: 500; margin: 40px 0 12px; }
 .prose p, .prose li { margin-bottom: 12px; }
 .prose ul { list-style: disc; padding-left: 1.2em; }
+.prose-lead { font-size: var(--step-lead); margin-bottom: 28px; }
+.prose h2 .link { text-decoration-thickness: 0.06em; }
+.prose .changelog { list-style: none; padding-left: 0; }
+.changelog time { display: block; font-size: var(--step-small); color: var(--muted); }
 
 /* ---------- Motion ---------- */
 @media (prefers-reduced-motion: no-preference) {

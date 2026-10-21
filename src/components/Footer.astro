@@ -11,7 +11,7 @@ const updated = new Date(SITE.updated).toLocaleDateString(t.locale, { day: 'nume
 <footer class="footer">
   <div class="tile tile-statement">
     <p>{f.statement}</p>
-    <p class="legal">© 2026 {SITE.name} · {ADS_ON ? f.rightsAds : f.rights} <a class="link" href={withBase(ROUTES[lang].legal)}>{f.legal}</a>{ADS_ON && <> · <button type="button" class="link link-button" data-privacy-prefs>{f.privacyPrefs}</button></>}</p>
+    <p class="legal">© 2026 {SITE.name} · {ADS_ON ? f.rightsAds : f.rights} <a class="link" href={withBase(ROUTES[lang].metodologia)}>{f.method}</a> · <a class="link" href={withBase(ROUTES[lang].legal)}>{f.legal}</a>{ADS_ON && <> · <button type="button" class="link link-button" data-privacy-prefs>{f.privacyPrefs}</button></>}</p>
   </div>
   <nav class="tile tile-nav" aria-labelledby="fn-h">
     <h2 id="fn-h">{f.navTitle}</h2>

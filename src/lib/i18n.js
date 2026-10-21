@@ -10,6 +10,7 @@ export const ROUTES = {
     factura: '/factura-iva-irpf/',
     hora: '/precio-hora-freelance/',
     comparar: '/asalariado-o-autonomo/',
+    metodologia: '/metodologia/',
     legal: '/legal/',
   },
   ca: {
@@ -20,6 +21,7 @@ export const ROUTES = {
     factura: '/ca/factura-iva-irpf/',
     hora: '/ca/preu-hora-freelance/',
     comparar: '/ca/assalariat-o-autonom/',
+    metodologia: '/ca/metodologia/',
     legal: '/ca/legal/',
   },
 };
@@ -46,6 +48,7 @@ const es = {
     statement: 'Las cuentas que hace cada persona que trabaja en España, resueltas en segundos y sin registrarte.',
     navTitle: 'Calculadoras',
     legal: 'Aviso legal y privacidad',
+    method: 'Cómo calculamos',
     cityTime: 'Hora en',
     write: 'Escríbenos',
     cta: 'Calcula tu sueldo',
@@ -88,6 +91,7 @@ const es = {
       liquido: 'Líquido a percibir',
       extra: 'Paga extra (junio y diciembre)',
       anual: 'Neto al año',
+      region: 'La retención es igual en toda España. Lo que pagas al final depende de tu comunidad autónoma y se ajusta en la renta.',
     },
     resultLabel: 'Neto al mes',
     stages: {
@@ -502,6 +506,18 @@ const es = {
     title: 'Aviso legal y privacidad',
     description: 'Aviso legal, política de privacidad y de cookies de Quant.',
   },
+  method: {
+    title: 'Cómo calculamos: metodología y fuentes',
+    description: 'Qué normas, parámetros de 2026 y supuestos usa cada calculadora de Quant, quién la hace y cómo comprobamos que las cuentas salen bien.',
+    h1: 'Cómo calculamos',
+    link: 'Cómo calculamos',
+    changelog: 'Registro de cambios',
+    changes: [
+      ['2026-10-21', 'Página de metodología y aviso sobre la retención por comunidad autónoma en el sueldo neto.'],
+      ['2026-10-20', 'Nuevas calculadoras de finiquito, paro y asalariado o autónomo, con la LGSS y el Estatuto de los Trabajadores vigentes.'],
+      ['2026-10-17', 'Parámetros de 2026 revisados con el algoritmo de retenciones de la AEAT del 10 de septiembre.'],
+    ],
+  },
   notFound: {
     title: 'Página no encontrada',
     text: 'Esta página no existe, pero tus cuentas sí. Vuelve a la calculadora.',
@@ -531,6 +547,7 @@ const ca = {
     statement: 'Els comptes que fa tothom qui treballa a Espanya, resolts en segons i sense registrar-te.',
     navTitle: 'Calculadores',
     legal: 'Avís legal i privacitat',
+    method: 'Com calculem',
     cityTime: 'Hora a',
     write: 'Escriu-nos',
     cta: 'Calcula el teu sou',
@@ -573,6 +590,7 @@ const ca = {
       liquido: 'Líquid a percebre',
       extra: 'Paga extra (juny i desembre)',
       anual: 'Net a l’any',
+      region: 'La retenció és igual a tot Espanya. El que pagues al final depèn de la comunitat autònoma i s’ajusta a la renda.',
     },
     resultLabel: 'Net al mes',
     stages: {
@@ -986,6 +1004,18 @@ const ca = {
   legal: {
     title: 'Avís legal i privacitat',
     description: 'Avís legal, política de privacitat i de galetes de Quant.',
+  },
+  method: {
+    title: 'Com calculem: metodologia i fonts',
+    description: 'Quines normes, paràmetres del 2026 i supòsits fa servir cada calculadora de Quant, qui la fa i com comprovem que els comptes surten bé.',
+    h1: 'Com calculem',
+    link: 'Com calculem',
+    changelog: 'Registre de canvis',
+    changes: [
+      ['2026-10-21', 'Pàgina de metodologia i avís sobre la retenció per comunitat autònoma al sou net.'],
+      ['2026-10-20', 'Noves calculadores de quitança, atur i assalariat o autònom, amb la LGSS i l’Estatut dels Treballadors vigents.'],
+      ['2026-10-17', 'Paràmetres del 2026 revisats amb l’algorisme de retencions de l’AEAT del 10 de setembre.'],
+    ],
   },
   notFound: {
     title: 'Pàgina no trobada',
