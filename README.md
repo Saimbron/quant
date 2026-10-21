@@ -15,7 +15,7 @@ Web estàtica (Astro) amb set calculadores, en castellà i català:
 ## Tecnologia
 
 - **Astro**: genera pàgines estàtiques (ràpides i bones per a Google).
-- **Three.js**: les monedes 3D de la portada (`src/scripts/coins.js`). Es carrega quan la pàgina ja està llesta, només si hi ha WebGL; sense, la web funciona igual.
+- **Three.js**: les tres piles de bitllets i monedes d'euro, amb la quantitat exacta de cada resultat (`src/scripts/cash.js`). Els bitllets són il·lustracions pròpies (colors, mides i valors reals, sense el disseny oficial del BCE). Es carrega quan la pàgina ja està llesta, només si hi ha WebGL; sense, la web funciona igual.
 - **GSAP + ScrollTrigger**: animacions lligades al scroll (`src/scripts/motion.js`). No es carrega si el visitant demana menys moviment.
 - CSS i JavaScript propis per a la resta (càlcul en directe, comptador de xifres, transicions entre calculadores).
 

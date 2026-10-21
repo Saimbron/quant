@@ -513,6 +513,7 @@ const es = {
     link: 'Cómo calculamos',
     changelog: 'Registro de cambios',
     changes: [
+      ['2026-10-21', 'Las monedas de cada calculadora pasan a ser billetes y monedas de euro con la cantidad exacta de cada resultado, hasta el céntimo.'],
       ['2026-10-21', 'Página de metodología y aviso sobre la retención por comunidad autónoma en el sueldo neto.'],
       ['2026-10-20', 'Nuevas calculadoras de finiquito, paro y asalariado o autónomo, con la LGSS y el Estatuto de los Trabajadores vigentes.'],
       ['2026-10-17', 'Parámetros de 2026 revisados con el algoritmo de retenciones de la AEAT del 10 de septiembre.'],
@@ -1012,6 +1013,7 @@ const ca = {
     link: 'Com calculem',
     changelog: 'Registre de canvis',
     changes: [
+      ['2026-10-21', 'Les monedes de cada calculadora passen a ser bitllets i monedes d’euro amb la quantitat exacta de cada resultat, fins al cèntim.'],
       ['2026-10-21', 'Pàgina de metodologia i avís sobre la retenció per comunitat autònoma al sou net.'],
       ['2026-10-20', 'Noves calculadores de quitança, atur i assalariat o autònom, amb la LGSS i l’Estatut dels Treballadors vigents.'],
       ['2026-10-17', 'Paràmetres del 2026 revisats amb l’algorisme de retencions de l’AEAT del 10 de setembre.'],

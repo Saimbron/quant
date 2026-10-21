@@ -695,41 +695,43 @@ details.more .stepper output { background: var(--night); }
 [data-lines] .ln { display: block; overflow: hidden; padding-block: 0.16em 0.06em; margin-block: -0.16em -0.06em; }
 [data-lines] .ln > span { display: block; }
 
-/* ---------- 3D coins on the stage ---------- */
+/* ---------- 3D money on the stage: banknotes and coins counted to the cent ---------- */
+/* Wide desktop: a column of its own to the right of the paper, from its top to the bottom of the stage */
 .coins-box {
   position: absolute; z-index: 2;
-  right: -262px; bottom: -120px;
-  width: 380px; height: 430px;
+  top: clamp(48px, 0.5rem + 4.6vw, 92px); height: clamp(380px, calc(100vh - 330px), 640px);
+  right: calc(-1 * var(--margin));
+  width: calc(100% - min(500px, 100% - 250px) + var(--margin));
   opacity: 0; transition: opacity 600ms ease;
   pointer-events: none;
 }
 .has-coins .coins-box { opacity: 1; }
 .coins { width: 100%; height: 100%; display: block; }
-.coins-legend {
-  position: absolute; left: 132px; top: 0;
-  display: grid; gap: 6px; justify-items: start;
-  font-size: 0.8125rem; font-weight: 500; color: #ffffff;
+.cash-labels li {
+  position: absolute; left: 0; top: 0;
+  display: grid; justify-items: center; gap: 1px;
+  padding: 5px 9px;
+  background: rgba(26, 26, 22, 0.84); color: #ffffff;
+  font-size: 0.8125rem; line-height: 1.25; white-space: nowrap;
+  opacity: 0; transition: opacity 400ms ease;
 }
-.coins-legend li { display: flex; align-items: center; gap: 8px; }
-.coins-legend .dot { width: 10px; height: 10px; border-radius: 50%; }
-.coins-legend .dot-0 { background: #d8a23a; }
-.coins-legend .dot-1 { background: #34342f; outline: 1px solid rgba(255, 255, 255, 0.4); }
-.coins-legend .dot-2 { background: #c4c7cc; }
-@media (min-width: 1024px) {
-  .has-coins .doc-stage { max-width: 560px; }
+.cash-labels li.is-placed { opacity: 1; }
+.cash-labels span { color: rgba(255, 255, 255, 0.74); }
+.cash-labels b { font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (min-width: 1360px) {
+  .has-coins .doc-stage { max-width: min(500px, calc(100% - 250px)); }
 }
-@media (max-width: 1023px) {
-  .coins-box { top: 0; bottom: auto; right: 0; width: 58%; height: 240px; }
-  .coins-legend { top: auto; bottom: 8px; left: 8px; font-size: 0.8125rem; }
+/* Narrower screens: a band across the top of the stage, in place of the big number */
+@media (max-width: 1359px) {
+  .coins-box { top: 0; bottom: auto; right: 0; left: 0; width: auto; height: 240px; }
   .has-coins .doc-stage { padding-top: 240px; }
   .stage-num { transition: opacity 500ms ease, visibility 0s linear 500ms; }
   .has-coins .stage-num { opacity: 0; visibility: hidden; }
-  .coins-box { width: 100%; }
 }
 @media (max-width: 767px) {
-  .coins-box { height: 60vw; top: 2vw; }
-  .coins-legend { display: none; }
-  .has-coins .doc-stage { padding-top: 58vw; }
+  .coins-box { height: 56vw; top: 2vw; left: calc(-1 * var(--margin)); right: calc(-1 * var(--margin)); }
+  .has-coins .doc-stage { padding-top: 56vw; }
+  .cash-labels li { padding: 4px 7px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .coins-box { transition: none; }

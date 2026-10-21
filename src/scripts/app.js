@@ -266,6 +266,7 @@ export function boot() {
 
     paintResult(r.result, { from0 });
     lastCoins = r.coins;
+    hero.querySelectorAll('[data-pile-amt]').forEach((el, i) => { el.textContent = f.eur(Math.max(0, r.coins[i] || 0)); });
     if (coinsReady) coinsApi?.setValues(r.coins);
     if (dockValue) dockValue.textContent = f.eur(r.result) + unit;
     if (say) announce(r.result);
@@ -498,13 +499,13 @@ export function boot() {
     });
   }
 
-  // ---------- 3D coins: loaded on idle, only where WebGL works ----------
+  // ---------- 3D money: loaded on idle, only where WebGL works ----------
   const coinCanvas = hero.querySelector('[data-coins]');
   if (coinCanvas && webglOK()) {
     whenIdle(() => {
-      import('./coins.js').then(({ mountCoins }) => {
+      import('./cash.js').then(({ mountCash }) => {
         if (!coinCanvas.isConnected) return;
-        coinsApi = mountCoins(coinCanvas, { reduced: reduce() });
+        coinsApi = mountCash(coinCanvas, { reduced: reduce(), labels: [...hero.querySelectorAll('[data-pile]')] });
         hero.classList.add('has-coins');
         onCleanup(() => { coinsApi?.destroy(); coinsApi = null; });
         const t = setTimeout(() => { coinsReady = true; if (lastCoins) coinsApi?.setValues(lastCoins); }, reduce() ? 0 : 1400);
