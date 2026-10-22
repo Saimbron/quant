@@ -505,9 +505,11 @@ export function boot() {
     whenIdle(() => {
       import('./cash.js').then(({ mountCash }) => {
         if (!coinCanvas.isConnected) return;
-        coinsApi = mountCash(coinCanvas, { reduced: reduce(), labels: [...hero.querySelectorAll('[data-pile]')] });
+        coinsApi = mountCash(coinCanvas, { reduced: reduce() });
         hero.classList.add('has-coins');
         onCleanup(() => { coinsApi?.destroy(); coinsApi = null; });
+        // The whole amount lands in one pile first, then splits into the three
+        if (lastCoins && !reduce()) coinsApi.setValues([lastCoins.reduce((a, v) => a + Math.max(0, v || 0), 0), 0, 0]);
         const t = setTimeout(() => { coinsReady = true; if (lastCoins) coinsApi?.setValues(lastCoins); }, reduce() ? 0 : 1400);
         onCleanup(() => clearTimeout(t));
       }).catch(() => {});

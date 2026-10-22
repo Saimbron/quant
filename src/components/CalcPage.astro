@@ -478,14 +478,14 @@ const pct1 = makeFormat(t.locale).pct;
             )}
           </article>
           </div>
-          </div>
-          <div class="coins-box" aria-hidden="true">
-            <canvas class="coins" data-coins></canvas>
-            <ol class="cash-labels">
-              {(c.coinLegend ?? c.stages?.segs ?? []).map((name, i) => (
-                <li data-pile={i}><span>{name}</span><b data-pile-amt>{eur2.format(Math.max(0, r.coins[i] || 0))}</b></li>
-              ))}
-            </ol>
+            <div class="coins-box" aria-hidden="true">
+              <canvas class="coins" data-coins></canvas>
+              <ul class="coins-legend">
+                {(c.coinLegend ?? c.stages?.segs ?? []).map((name, i) => (
+                  <li><i class={`dot dot-${i}`}></i><span>{name}<b data-pile-amt>{eur2.format(Math.max(0, r.coins[i] || 0))}</b></span></li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>

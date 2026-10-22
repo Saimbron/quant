@@ -1,19 +1,32 @@
-// Three piles of real money: each figure laid out in euro banknotes and coins, counted to the cent.
-// The notes are Quant's own drawings with the colours, sizes and values of the Europa series, not the
-// official artwork, so they stay within the ECB rules on reproducing banknotes. Loaded on demand.
+// Three piles of euro banknotes that split into what is yours and what goes elsewhere, the way the coins
+// did. Each pile holds its exact amount: notes of one value give it its height, so the piles compare at a
+// glance, and smaller notes and coins on top complete the figure to the cent. The notes are Quant's own
+// drawings with the colours, sizes and values of the Europa series, not the official artwork, so they stay
+// within the ECB rules on reproducing banknotes. Loaded on demand; the page works the same without it.
 import {
-  BoxGeometry, CanvasTexture, CylinderGeometry, DirectionalLight, HemisphereLight,
-  InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, NeutralToneMapping, Object3D, PCFSoftShadowMap, PerspectiveCamera,
-  PlaneGeometry, PMREMGenerator, Scene, ShadowMaterial, SRGBColorSpace, Vector3, WebGLRenderer,
+  BoxGeometry, CanvasTexture, CylinderGeometry, DirectionalLight, HemisphereLight, InstancedMesh, Matrix4, Mesh,
+  MeshStandardMaterial, NeutralToneMapping, Object3D, PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry,
+  PMREMGenerator, Scene, ShadowMaterial, SRGBColorSpace, WebGLRenderer,
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-const MM = 0.01; // world units per millimetre
-const T = 0.0045; // drawn thickness of one note (thicker than paper, so a stack reads as a stack)
-const HAND = 100; // notes in a bank bundle
-const MAX_BUNDLES = 6; // per pile; beyond this the label still carries the exact figure
+const MM = 0.0105; // a 200 € note is 1.6 units long, close to the width of the old coins
+const T0 = 0.05; // modelled thickness of a note; each one is scaled to the thickness of the stack
+const MAX_STACK = 4.4; // height of all the notes put together
+const MAX_NOTES = 250; // per pile; beyond this the legend still carries the exact figure
 const COIN_SCALE = 1.35;
+const COIN_THICK = 3.2;
 const FONT = '"Jost Variable", Jost, system-ui, sans-serif';
+// Where the piles stand, as the coins did: yours in front, the rest set back
+const PILES = [
+  { x: -0.3, z: 0.7, yaw: -0.85 },
+  { x: 1.0, z: -2.3, yaw: -0.6 },
+  { x: 2.0, z: 0.5, yaw: -0.75 },
+];
+const BANDS = ['#d8a23a', '#34342f', '#c4c7cc']; // the legend's colours
+// Where the coins rest on the top note, in its own coordinates
+const COIN_SPOTS = [[-0.42, -0.14], [0.02, -0.15], [0.44, -0.12], [-0.38, 0.17], [0.06, 0.16], [0.46, 0.18], [-0.2, 0.01], [0.24, 0.02]];
+
 
 // Europa series: value, size in mm and colour family
 const NOTES = [
@@ -37,16 +50,6 @@ const COINS = [
 ];
 const METAL = { gold: ['#ecd27e', '#b48a35'], silver: ['#eceef0', '#9ea3a9'], copper: ['#e0956a', '#93522c'] };
 
-// ---------- Counting ----------
-
-export function breakdown(amount) {
-  let cents = Math.round(Math.min(Math.max(0, +amount || 0), 1e8) * 100);
-  const notes = NOTES.map((d) => { const n = Math.floor(cents / (d.v * 100)); cents -= n * d.v * 100; return n; });
-  const coins = COINS.map((k) => { const n = Math.floor(cents / k.c); cents -= n * k.c; return n; });
-  const hands = Math.floor(notes[0] / HAND);
-  notes[0] -= hands * HAND;
-  return { bundles: Math.min(MAX_BUNDLES, hands), notes, coins };
-}
 
 // Seeded random, so a pile keeps the same little disorder every time it is laid out
 function rng(seed) {
@@ -61,62 +64,6 @@ function rng(seed) {
 }
 
 // One pile in its own coordinates: bundles at the bottom, loose notes from the largest value up, each value
-// shifted back and to the right so the top edge of every note (value and "EURO") stays in sight, coins in front.
-function pileLayout(amount, pile) {
-  const b = breakdown(amount);
-  const r = rng(pile * 9973 + 17);
-  const slots = [];
-  const big = NOTES[0];
-  const bt = HAND * T;
-  for (let k = 0; k < b.bundles; k++) {
-    const col = Math.floor(k / 3);
-    slots.push({ key: 'bundle', x: col * (big.w * MM + 0.06) + (big.w * MM) / 2, y: (k % 3) * bt + bt / 2, z: (big.h * MM) / 2, ry: (r() - 0.5) * 0.04, hw: (big.w * MM) / 2, hd: (big.h * MM) / 2 });
-  }
-  let y = Math.min(3, b.bundles) * bt;
-  let group = 0;
-  NOTES.forEach((d, di) => {
-    const n = b.notes[di];
-    if (!n) return;
-    const w = d.w * MM;
-    const h = d.h * MM;
-    // On top of a bundle, loose notes sit forward and to the right, so its band stays readable
-    const ax = group * 0.1 + (b.bundles ? 0.55 : 0);
-    const az = group * 0.21 + (b.bundles ? 0.3 : 0);
-    const step = Math.min(0.012, 0.18 / n);
-    for (let j = 0; j < n; j++) {
-      slots.push({
-        key: `note${di}`,
-        x: ax + w / 2 + j * step + (r() - 0.5) * 0.02,
-        y: y + (j + 0.5) * T,
-        z: az + h / 2 + j * step * 0.5 + (r() - 0.5) * 0.02,
-        ry: (r() - 0.5) * 0.07,
-        hw: w / 2, hd: h / 2,
-      });
-    }
-    y += n * T;
-    group++;
-  });
-  const front = slots.reduce((m, s) => Math.max(m, s.z + s.hd), 0);
-  let cx = 0.04;
-  COINS.forEach((k, ci) => {
-    const n = b.coins[ci];
-    if (!n) return;
-    const rad = (k.d * MM * COIN_SCALE) / 2;
-    const th = k.t * MM * 1.6;
-    for (let j = 0; j < n; j++) {
-      slots.push({ key: `coin${ci}`, x: cx + rad + (r() - 0.5) * 0.015, y: (j + 0.5) * th, z: front + 0.1 + rad + (r() - 0.5) * 0.015, ry: r() * Math.PI * 2, hw: rad, hd: rad });
-    }
-    cx += rad * 2 + 0.05;
-  });
-  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, top = 0;
-  for (const s of slots) {
-    minX = Math.min(minX, s.x - s.hw); maxX = Math.max(maxX, s.x + s.hw);
-    minZ = Math.min(minZ, s.z - s.hd); maxZ = Math.max(maxZ, s.z + s.hd);
-    top = Math.max(top, s.y);
-  }
-  if (!slots.length) { minX = 0; maxX = 1; minZ = 0; maxZ = 0.6; }
-  return { slots, minX, maxX, minZ, maxZ, top };
-}
 
 // ---------- Drawing (our own artwork, never the ECB's) ----------
 
@@ -165,7 +112,7 @@ function rosette(g, cx, cy, R, color) {
   }
 }
 
-function drawNote(d, { back = false, band = null } = {}) {
+function drawNote(d, { back = false } = {}) {
   const W = back ? 384 : 768;
   const H = Math.round((W * d.h) / d.w);
   const c = canvas(W, H);
@@ -237,24 +184,6 @@ function drawNote(d, { back = false, band = null } = {}) {
   g.lineWidth = 2;
   g.strokeRect(W * 0.012, H * 0.02, W * 0.976, H * 0.96);
 
-  if (band) {
-    // Paper band of a bank bundle, kept on the left third so the loose notes on top never hide it
-    const bx = W * 0.24;
-    const bw = W * 0.12;
-    g.fillStyle = '#f5f2ea';
-    g.fillRect(bx, 0, bw, H);
-    g.strokeStyle = 'rgba(0,0,0,0.12)';
-    g.strokeRect(bx + 3, -2, bw - 6, H + 4);
-    g.save();
-    g.translate(bx + bw / 2, H * 0.34);
-    g.rotate(-Math.PI / 2);
-    g.fillStyle = '#2a2a26';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.font = `600 ${Math.round(bw * 0.34)}px ${FONT}`;
-    g.fillText(band, 0, 0);
-    g.restore();
-  }
   return c;
 }
 
@@ -268,22 +197,6 @@ function drawNoteSurface(d) {
   g.fillRect(0, 0, W, H);
   g.fillStyle = 'rgb(0,70,255)';
   g.fillRect(W * 0.315, 0, W * 0.05, H);
-  return c;
-}
-
-function drawEdges(d, withBand) {
-  const c = canvas(512, 64);
-  const g = c.getContext('2d');
-  g.fillStyle = d.paper;
-  g.fillRect(0, 0, 512, 64);
-  for (let y = 0; y < 64; y += 2) {
-    g.fillStyle = hexA(d.deep, 0.08 + ((y / 2) % 3) * 0.04);
-    g.fillRect(0, y, 512, 1);
-  }
-  if (withBand) {
-    g.fillStyle = '#f5f2ea';
-    g.fillRect(512 * 0.24, 0, 512 * 0.12, 64);
-  }
   return c;
 }
 
@@ -319,7 +232,7 @@ function drawCoin(k) {
 
 // A note lies a little bowed, like paper does
 function noteGeometry(w, h, t, bow) {
-  const geo = new BoxGeometry(w, t, h, 12, 1, 2);
+  const geo = new BoxGeometry(w, t, h, 4, 1, 1);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i) / (w / 2);
@@ -329,14 +242,41 @@ function noteGeometry(w, h, t, bow) {
   return geo;
 }
 
+// ---------- What each pile holds ----------
+
+// The value that builds the height of the piles, chosen from the whole amount so the piles compare at a glance
+function baseValue(total) {
+  if (total <= 5000) return 50;
+  if (total <= 12000) return 100;
+  return 200;
+}
+
+// Bottom to top: notes of the base value, then smaller notes and coins to the cent
+function pileContent(amount, base) {
+  let cents = Math.round(Math.min(Math.max(0, +amount || 0), 1e8) * 100);
+  const notes = [];
+  NOTES.forEach((d, di) => {
+    if (d.v > base) return;
+    const n = Math.floor(cents / (d.v * 100));
+    cents -= n * d.v * 100;
+    for (let k = 0; k < Math.min(n, MAX_NOTES); k++) notes.push(di);
+  });
+  const coins = [];
+  COINS.forEach((k, ci) => {
+    const n = Math.floor(cents / k.c);
+    cents -= n * k.c;
+    for (let j = 0; j < n; j++) coins.push(ci);
+  });
+  return { notes, coins };
+}
+
 // ---------- Scene ----------
 
-export function mountCash(canvasEl, { reduced = false, labels = [] } = {}) {
+export function mountCash(canvasEl, { reduced = false } = {}) {
   const renderer = new WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, matchMedia('(max-width: 767px)').matches ? 1.5 : 2));
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = NeutralToneMapping; // keeps the notes' colours true
-  renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -345,43 +285,46 @@ export function mountCash(canvasEl, { reduced = false, labels = [] } = {}) {
   const pmrem = new PMREMGenerator(renderer);
   const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = envTex;
-  scene.add(new HemisphereLight(0xffffff, 0x2a2a20, 0.45));
-  const sun = new DirectionalLight(0xffffff, 2.1);
-  sun.position.set(-4, 10, 5);
+
+  const camera = new PerspectiveCamera(26, 1, 0.1, 100);
+  const base = { x: 8.4, y: 9.6, z: 16 };
+  const target = { x: 0.6, y: 1.9, z: -0.4 };
+
+  scene.add(new HemisphereLight(0xffffff, 0x223322, 0.4));
+  const sun = new DirectionalLight(0xffffff, 2.2);
+  sun.position.set(-5, 12, 6);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -9; sun.shadow.camera.right = 9; sun.shadow.camera.top = 9; sun.shadow.camera.bottom = -9;
-  sun.shadow.radius = 4;
-  sun.shadow.bias = -0.0004;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -7; sun.shadow.camera.right = 7; sun.shadow.camera.top = 7; sun.shadow.camera.bottom = -7;
+  sun.shadow.radius = 6;
+  sun.shadow.bias = -0.0006;
   scene.add(sun);
-  scene.add(sun.target);
-  const ground = new Mesh(new PlaneGeometry(60, 60), new ShadowMaterial({ opacity: 0.3 }));
+
+  const ground = new Mesh(new PlaneGeometry(40, 40), new ShadowMaterial({ opacity: 0.28 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const camera = new PerspectiveCamera(30, 1, 0.1, 200);
-  const disposables = [];
-  const textures = [];
+  const disposables = [ground.geometry, ground.material];
   const tex = (c, srgb = true) => {
     const t = new CanvasTexture(c);
     if (srgb) t.colorSpace = SRGBColorSpace;
     t.anisotropy = aniso;
-    textures.push({ t, c });
+    disposables.push(t);
     return t;
   };
 
-  // One instanced mesh per kind of piece
+  // One instanced mesh per note value and per coin
   const kinds = {};
+  const zero = new Matrix4().makeScale(0, 0, 0);
   const addKind = (key, geo, mats, capacity) => {
     const mesh = new InstancedMesh(geo, mats, capacity);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.frustumCulled = false;
-    const zero = new Matrix4().makeScale(0, 0, 0);
     for (let i = 0; i < capacity; i++) mesh.setMatrixAt(i, zero);
     scene.add(mesh);
-    disposables.push(geo, ...[].concat(mats));
+    disposables.push(geo, ...mats);
     kinds[key] = { mesh, free: Array.from({ length: capacity }, (_, i) => capacity - 1 - i), items: [] };
   };
 
@@ -393,58 +336,49 @@ export function mountCash(canvasEl, { reduced = false, labels = [] } = {}) {
     const edge = new MeshStandardMaterial({ color: d.paper, roughness: 0.9 });
     const top = new MeshStandardMaterial({ map: front, roughnessMap: surface, metalnessMap: surface, roughness: 1, metalness: 1, envMapIntensity: 0.9 });
     const bottom = new MeshStandardMaterial({ map: back, roughness: 0.8 });
-    addKind(`note${di}`, noteGeometry(d.w * MM, d.h * MM, T, 0.012), [edge, edge, top, bottom, edge, edge], di === 0 ? 360 : 16);
+    addKind(`note${di}`, noteGeometry(d.w * MM, d.h * MM, T0, 0.006), [edge, edge, top, bottom, edge, edge], 3 * MAX_NOTES + 60);
     redraws.push(() => { front.image = drawNote(d); front.needsUpdate = true; back.image = drawNote(d, { back: true }); back.needsUpdate = true; });
   });
-  {
-    const d = NOTES[0];
-    const label = `${HAND} × ${d.v} €`;
-    const top = tex(drawNote(d, { band: label }));
-    const long = tex(drawEdges(d, true));
-    const short = tex(drawEdges(d, false));
-    const longMat = new MeshStandardMaterial({ map: long, roughness: 0.92 });
-    const shortMat = new MeshStandardMaterial({ map: short, roughness: 0.92 });
-    const topMat = new MeshStandardMaterial({ map: top, roughness: 0.8 });
-    addKind('bundle', noteGeometry(d.w * MM, d.h * MM, HAND * T, 0.004), [shortMat, shortMat, topMat, topMat, longMat, longMat], 3 * MAX_BUNDLES + 6);
-    redraws.push(() => { top.image = drawNote(d, { band: label }); top.needsUpdate = true; });
-  }
   COINS.forEach((k, ci) => {
     const face = tex(drawCoin(k));
     const r = (k.d * MM * COIN_SCALE) / 2;
     const side = new MeshStandardMaterial({ color: METAL[k.ring][0], metalness: 1, roughness: 0.38 });
     const faces = new MeshStandardMaterial({ map: face, metalness: 1, roughness: 0.32 });
-    addKind(`coin${ci}`, new CylinderGeometry(r, r, k.t * MM * 1.6, 48, 1), [side, faces, faces], 12);
+    addKind(`coin${ci}`, new CylinderGeometry(r, r, k.t * MM * COIN_THICK, 40, 1), [side, faces, faces], 24);
     redraws.push(() => { face.image = drawCoin(k); face.needsUpdate = true; });
   });
+
+  // A paper band in the colour of the legend wraps each pile
+  const bands = BANDS.map((color, p) => {
+    const mesh = new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ color, roughness: 0.7, metalness: p === 1 ? 0 : 0.35 }));
+    mesh.castShadow = true;
+    mesh.scale.set(0.0001, 0.0001, 0.0001);
+    scene.add(mesh);
+    disposables.push(mesh.geometry, mesh.material);
+    return { mesh, h: 0, tH: 0, d: 1 };
+  });
+
   // Draw again once the brand typeface is ready
+  let alive = true;
   if (document.fonts && !document.fonts.check(`700 40px ${FONT}`)) {
     document.fonts.load(`700 40px ${FONT}`).then(() => { if (alive) { redraws.forEach((f) => f()); wake(); } }).catch(() => {});
   }
 
   // ---------- Pieces and their springs ----------
-  const o = new Object3D();
   let stiffness = 120;
-  let damping = 16;
-  let mode = 'row';
-  let anchors = [];
-  let fitDist = 12;
-  let fitCenter = new Vector3();
-  let dist = 12;
-  const center = new Vector3();
-  let firstLayout = true;
+  let damping = 14; // a little bounce for the first drop
+  let thick = 0.09;
 
-  function makeItem(kind, slot, now, delay) {
-    const k = kinds[kind];
+  function makeItem(key, slot, now, delay) {
+    const k = kinds[key];
     const idx = k.free.pop();
     if (idx === undefined) return null;
-    const drop = reduced ? 0 : 2.6 + Math.random() * 1.6;
     const item = {
-      kind, idx, pile: slot.pile, slotIndex: slot.index,
-      p: { x: slot.x + (Math.random() - 0.5) * 0.6, y: slot.y + drop, z: slot.z + (Math.random() - 0.5) * 0.6 },
+      idx, pile: slot.pile, slotIndex: slot.index,
+      p: reduced ? { x: slot.x, y: slot.y, z: slot.z } : { x: slot.x, y: slot.y + 9 + Math.random() * 3, z: slot.z },
       v: { x: 0, y: 0, z: 0 },
       t: { x: slot.x, y: slot.y, z: slot.z },
-      ry: slot.ry + (reduced ? 0 : (Math.random() - 0.5) * 1.2), tRy: slot.ry,
-      rx: reduced ? 0 : (Math.random() - 0.5) * 0.8,
+      ry: slot.ry, tRy: slot.ry,
       s: 1, tS: 1,
       wait: now + delay,
       hop: null, leaving: false,
@@ -453,59 +387,75 @@ export function mountCash(canvasEl, { reduced = false, labels = [] } = {}) {
     return item;
   }
 
-  function placePiles(layouts) {
-    const placed = layouts.map((l) => ({ ...l, ox: 0, oz: 0 }));
-    if (mode === 'row') {
-      // Wide box: side by side, yours on the left
-      const gap = 0.55;
-      let x = 0;
-      for (const p of placed) { p.ox = x - p.minX; p.oz = -(p.minZ + p.maxZ) / 2; x += p.maxX - p.minX + gap; }
-      placed.forEach((p) => { p.ox -= (x - gap) / 2; });
-    } else {
-      // Tall box: one pile per row, yours at the top, each label in the gap below its pile
-      const gap = 1.05;
-      let z = 0;
-      for (const p of placed) { p.ox = -(p.minX + p.maxX) / 2; p.oz = z - p.minZ; z += p.maxZ - p.minZ + gap; }
-      placed.forEach((p) => { p.oz -= (z - gap) / 2; });
-    }
-    return placed;
+  // Every note and coin a pile needs, in world coordinates
+  function pileSlots(content, pile) {
+    const P = PILES[pile];
+    const r = rng(pile * 7919 + 3);
+    const cos = Math.cos(P.yaw);
+    const sin = Math.sin(P.yaw);
+    const place = (lx, lz) => ({ x: P.x + lx * cos + lz * sin, z: P.z - lx * sin + lz * cos });
+    const slots = [];
+    const seen = {};
+    content.notes.forEach((di, j) => {
+      const key = `note${di}`;
+      const at = place((r() - 0.5) * 0.09, (r() - 0.5) * 0.09);
+      slots.push({ key, pile, index: (seen[key] = (seen[key] ?? -1) + 1), x: at.x, y: (j + 0.5) * thick, z: at.z, ry: P.yaw + (r() - 0.5) * 0.14 });
+    });
+    // Loose change on top of the notes, one short stack per coin, all within the top note
+    const top = content.notes.length * thick;
+    let spot = -1;
+    let last = -1;
+    let level = 0;
+    content.coins.forEach((ci) => {
+      const key = `coin${ci}`;
+      const th = COINS[ci].t * MM * COIN_THICK;
+      if (ci !== last) { spot++; level = 0; last = ci; }
+      const [lx, lz] = COIN_SPOTS[spot % COIN_SPOTS.length];
+      const at = place(lx, lz);
+      slots.push({ key, pile, index: (seen[key] = (seen[key] ?? -1) + 1), x: at.x, y: top + (level + 0.5) * th, z: at.z, ry: r() * Math.PI * 2 });
+      level++;
+    });
+    return { slots, height: top };
   }
 
+  // Money moves between piles the way the coins did: what one pile gives up jumps to another
   function setValues(values, { instant = false } = {}) {
     const now = performance.now();
-    const layouts = placePiles([0, 1, 2].map((i) => pileLayout(Math.max(0, values[i] || 0), i)));
-    // World slots per kind, in pile order
+    const vals = [0, 1, 2].map((i) => Math.max(0, values[i] || 0));
+    const total = vals.reduce((a, b) => a + b, 0);
+    const b = baseValue(total);
+    const contents = vals.map((v) => pileContent(v, b));
+    const count = contents.reduce((a, c) => a + c.notes.length, 0);
+    thick = Math.min(0.09, Math.max(0.016, MAX_STACK / Math.max(1, count)));
+    const laid = contents.map((c, p) => pileSlots(c, p));
     const wanted = {};
-    layouts.forEach((l, pile) => l.slots.forEach((s, index) => {
-      (wanted[s.key] ||= []).push({ ...s, pile, index, x: s.x + l.ox, z: s.z + l.oz });
-    }));
-    anchors = layouts.map((l) => new Vector3(l.ox + (l.minX + l.maxX) / 2, 0, l.oz + l.maxZ + 0.08));
+    laid.forEach((l) => l.slots.forEach((s) => (wanted[s.key] ||= []).push(s)));
 
-    let spawned = 0;
+    let moved = 0;
     for (const key of Object.keys(kinds)) {
       const k = kinds[key];
       const slots = wanted[key] || [];
       const current = k.items.filter((it) => !it.leaving);
-      const byPile = [0, 1, 2].map((p) => current.filter((it) => it.pile === p).sort((a, b) => a.slotIndex - b.slotIndex));
+      const byPile = [0, 1, 2].map((p) => current.filter((it) => it.pile === p).sort((a, c) => a.slotIndex - c.slotIndex));
       const pool = [];
       const assign = [];
       for (let p = 0; p < 3; p++) {
         const need = slots.filter((s) => s.pile === p);
         const have = byPile[p];
-        need.forEach((slot, j) => { if (have[j]) assign.push([have[j], slot]); else assign.push([null, slot]); });
+        need.forEach((slot, j) => assign.push([have[j] ?? null, slot]));
         pool.push(...have.slice(need.length));
       }
       for (const [item, slot] of assign) {
         let it = item;
         if (!it && pool.length) {
-          // Money moves from one pile to another in an arc
-          it = pool.shift();
-          if (!instant && !reduced) it.hop = { start: now + spawned * 14, dur: 620, h: 1.1 + Math.random() * 0.5 };
-          spawned++;
+          // Taken from the top of a shrinking pile, it jumps to the growing one in an arc
+          it = pool.pop();
+          if (!instant && !reduced) it.hop = { start: now + moved * 28, dur: 560, h: 1.6 + Math.random() * 0.6 };
+          moved++;
         }
         if (!it) {
-          it = makeItem(key, slot, now, instant ? 0 : (firstLayout ? 260 : 0) + spawned * (firstLayout ? 22 : 12));
-          spawned++;
+          it = makeItem(key, slot, now, instant ? 0 : moved * 30);
+          moved++;
           if (!it) continue;
         }
         it.pile = slot.pile;
@@ -513,79 +463,42 @@ export function mountCash(canvasEl, { reduced = false, labels = [] } = {}) {
         it.t = { x: slot.x, y: slot.y, z: slot.z };
         it.tRy = slot.ry;
       }
-      // What is left over flies off
       for (const it of pool) {
         it.leaving = true;
         it.tS = 0;
-        it.t = { ...it.t, y: it.t.y + 1.4 };
+        it.t = { ...it.t, y: it.t.y + 1.6 };
       }
     }
-    firstLayout = false;
-
-    // Frame everything, labels included
-    const min = new Vector3(Infinity, 0, Infinity);
-    const max = new Vector3(-Infinity, 0.05, -Infinity);
-    layouts.forEach((l) => {
-      min.x = Math.min(min.x, l.ox + l.minX); max.x = Math.max(max.x, l.ox + l.maxX);
-      min.z = Math.min(min.z, l.oz + l.minZ); max.z = Math.max(max.z, l.oz + l.maxZ + 0.5);
-      max.y = Math.max(max.y, l.top);
+    bands.forEach((band, p) => {
+      const first = contents[p].notes[0];
+      band.tH = laid[p].height;
+      band.d = first === undefined ? 0.8 : NOTES[first].h * MM + 0.05;
     });
-    fitView(min, max);
     if (instant || reduced) {
-      dist = fitDist;
-      center.copy(fitCenter);
-      for (const k of Object.values(kinds)) for (const it of k.items) { it.p = { ...it.t }; it.v = { x: 0, y: 0, z: 0 }; it.s = it.tS; it.ry = it.tRy; it.rx = 0; it.hop = null; }
+      for (const k of Object.values(kinds)) for (const it of k.items) { it.p = { ...it.t }; it.v = { x: 0, y: 0, z: 0 }; it.s = it.tS; it.ry = it.tRy; it.hop = null; it.wait = 0; }
+      bands.forEach((band) => { band.h = band.tH; });
     }
     wake();
   }
 
-  // ---------- Camera ----------
-  let pointer = { x: 0, y: 0 };
-  let cam = { x: 0, y: 0 };
-  let scroll = 0;
-  const EL = 0.9; // about 52° above the table, so the faces of the notes read
-  const azimuth = () => (mode === 'column' ? -0.04 : -0.22); // straight on in a narrow column, so the piles line up
-  const dir = (az, el) => new Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
-
-  function fitView(min, max) {
-    fitCenter = new Vector3((min.x + max.x) / 2, 0, (min.z + max.z) / 2);
-    const corners = [];
-    for (const x of [min.x, max.x]) for (const y of [min.y, max.y]) for (const z of [min.z, max.z]) corners.push(new Vector3(x, y, z));
-    const d = dir(azimuth(), EL);
-    const v = new Vector3();
-    let lo = 1;
-    let hi = 120;
-    for (let i = 0; i < 26; i++) {
-      const mid = (lo + hi) / 2;
-      camera.position.copy(fitCenter).addScaledVector(d, mid);
-      camera.lookAt(fitCenter);
-      camera.updateMatrixWorld();
-      const ok = corners.every((c) => { v.copy(c).project(camera); return Math.abs(v.x) < 0.9 && v.y < 0.86 && v.y > -0.9; });
-      if (ok) hi = mid; else lo = mid;
-    }
-    fitDist = hi;
-  }
-
-  function resize() {
-    const w = canvasEl.clientWidth;
-    const h = canvasEl.clientHeight;
-    if (!w || !h) return false;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    const next = w / h >= 0.9 ? 'row' : 'column';
-    const changed = next !== mode;
-    mode = next;
-    return changed;
-  }
-
   // ---------- Frame loop ----------
+  const o = new Object3D();
   let raf = 0;
   let last = 0;
   let calmSince = 0;
   let visible = true;
-  let alive = true;
-  const lp = new Vector3();
+  let pointer = { x: 0, y: 0 };
+  let cam = { x: 0, y: 0 };
+  let scroll = 0;
+
+  function resize() {
+    const w = canvasEl.clientWidth;
+    const h = canvasEl.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
 
   function frame(now) {
     raf = 0;
@@ -593,8 +506,9 @@ export function mountCash(canvasEl, { reduced = false, labels = [] } = {}) {
     last = now;
     let moving = false;
 
-    for (const k of Object.values(kinds)) {
-      let dirty = false;
+    for (const [key, k] of Object.entries(kinds)) {
+      if (!k.items.length) continue;
+      const isNote = key.startsWith('note');
       for (let n = k.items.length - 1; n >= 0; n--) {
         const it = k.items[n];
         if (now < it.wait) { moving = true; continue; }
@@ -602,78 +516,74 @@ export function mountCash(canvasEl, { reduced = false, labels = [] } = {}) {
           const f = -stiffness * (it.p[ax] - it.t[ax]) - damping * it.v[ax];
           it.v[ax] += f * dt;
           it.p[ax] += it.v[ax] * dt;
-          if (Math.abs(it.v[ax]) > 0.002 || Math.abs(it.p[ax] - it.t[ax]) > 0.001) moving = true;
+          if (Math.abs(it.v[ax]) > 0.002 || Math.abs(it.p[ax] - it.t[ax]) > 0.002) moving = true;
         }
-        const ease = 1 - Math.exp(-dt * 9);
-        it.ry += (it.tRy - it.ry) * ease;
-        it.rx += (0 - it.rx) * ease;
+        it.ry += (it.tRy - it.ry) * (1 - Math.exp(-dt * 8));
         it.s += (it.tS - it.s) * (1 - Math.exp(-dt * 7));
-        if (Math.abs(it.tRy - it.ry) > 0.001 || Math.abs(it.rx) > 0.001 || Math.abs(it.tS - it.s) > 0.002) moving = true;
-        let lift = 0;
-        let flip = 0;
+        if (Math.abs(it.tRy - it.ry) > 0.001 || Math.abs(it.tS - it.s) > 0.002) moving = true;
+        let hopY = 0;
+        let tilt = 0;
         if (it.hop) {
           const q = (now - it.hop.start) / it.hop.dur;
           if (q >= 1) it.hop = null;
-          else if (q > 0) { lift = Math.sin(q * Math.PI) * it.hop.h; flip = Math.sin(q * Math.PI) * 0.5; }
+          else if (q > 0) { hopY = Math.sin(q * Math.PI) * it.hop.h; tilt = Math.sin(q * Math.PI) * 0.9; }
           moving = true;
         }
         if (it.leaving && it.s < 0.02) {
-          o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.setScalar(0); o.updateMatrix();
-          k.mesh.setMatrixAt(it.idx, o.matrix);
+          k.mesh.setMatrixAt(it.idx, zero);
           k.free.push(it.idx);
           k.items.splice(n, 1);
-          dirty = true;
           continue;
         }
-        o.position.set(it.p.x, it.p.y + lift, it.p.z);
-        o.rotation.set(it.rx + flip, it.ry, 0);
-        o.scale.setScalar(Math.max(0.0001, it.s));
+        o.position.set(it.p.x, it.p.y + hopY, it.p.z);
+        o.rotation.set(tilt, it.ry, 0);
+        o.scale.set(it.s, it.s * (isNote ? thick / T0 : 1), it.s);
         o.updateMatrix();
         k.mesh.setMatrixAt(it.idx, o.matrix);
-        dirty = true;
       }
-      if (dirty) k.mesh.instanceMatrix.needsUpdate = true;
+      k.mesh.instanceMatrix.needsUpdate = true;
     }
 
-    // Camera: follows the framing, the pointer and the scroll
-    dist += (fitDist - dist) * (1 - Math.exp(-dt * 5));
-    center.lerp(fitCenter, 1 - Math.exp(-dt * 5));
-    if (Math.abs(fitDist - dist) > 0.005) moving = true;
+    // Bands wrap only the notes that have landed, so they never stand empty while money is in the air
+    const landed = [0, 0, 0];
+    for (const [key, k] of Object.entries(kinds)) {
+      if (!key.startsWith('note')) continue;
+      for (const it of k.items) {
+        if (it.leaving || it.hop || now < it.wait || Math.abs(it.p.y - it.t.y) > 0.25) continue;
+        landed[it.pile] = Math.max(landed[it.pile], it.p.y + thick / 2);
+      }
+    }
+    bands.forEach((band, p) => {
+      const goal = Math.min(band.tH, landed[p]);
+      band.h += (goal - band.h) * (1 - Math.exp(-dt * 10));
+      if (Math.abs(goal - band.h) > 0.002) moving = true;
+      const P = PILES[p];
+      const on = band.h > 0.02;
+      band.mesh.position.set(P.x, band.h / 2, P.z);
+      band.mesh.rotation.set(0, P.yaw, 0);
+      band.mesh.scale.set(on ? 0.26 : 0.0001, on ? band.h + 0.012 : 0.0001, on ? band.d : 0.0001);
+    });
+
+    // Camera: pointer parallax (spring-smoothed) and a dolly as the hero scrolls away
     cam.x += (pointer.x - cam.x) * 0.06;
     cam.y += (pointer.y - cam.y) * 0.06;
+    const sway = reduced ? 0 : Math.sin(now / 2600) * 0.25;
+    camera.position.set(base.x + cam.x * 2.2 + sway, base.y - cam.y * 1.4 - scroll * 2.5, base.z - scroll * 4);
+    camera.lookAt(target.x, target.y + scroll * 0.6, target.z);
     if (Math.abs(pointer.x - cam.x) > 0.001 || Math.abs(pointer.y - cam.y) > 0.001) moving = true;
-    const sway = reduced ? 0 : Math.sin(now / 2800) * 0.03;
-    const d = dir(azimuth() + cam.x * 0.16 + sway, EL - cam.y * 0.07 + scroll * 0.15);
-    camera.position.copy(center).addScaledVector(d, dist * (1 - scroll * 0.18));
-    camera.lookAt(center);
-    camera.updateMatrixWorld();
-    sun.position.set(center.x - 4, 10, center.z + 5);
-    sun.target.position.copy(center);
 
     renderer.render(scene, camera);
 
-    // Labels follow their piles
-    const w = canvasEl.clientWidth;
-    const h = canvasEl.clientHeight;
-    labels.forEach((el, i) => {
-      const a = anchors[i];
-      if (!a) return;
-      lp.copy(a).project(camera);
-      el.style.transform = `translate(${((lp.x + 1) / 2) * w}px, ${((1 - lp.y) / 2) * h}px) translateX(-50%)`;
-      el.classList.add('is-placed');
-    });
-
     if (moving) calmSince = now;
-    if (visible && !reduced && (moving || now - calmSince < 5000)) raf = requestAnimationFrame(frame);
-    else if (reduced && moving) raf = requestAnimationFrame(frame);
+    // Keep a gentle idle sway for a few seconds after the last movement, then rest
+    if (visible && !reduced && (moving || now - calmSince < 6000)) raf = requestAnimationFrame(frame);
   }
 
   function wake() {
     if (!raf && visible && alive) { last = 0; raf = requestAnimationFrame(frame); }
   }
 
-  let lastValues = [0, 0, 0];
-  const ro = new ResizeObserver(() => { if (resize()) setValues(lastValues, { instant: true }); wake(); });
+  const ro = new ResizeObserver(() => { resize(); wake(); });
   ro.observe(canvasEl);
   const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) wake(); }, { threshold: 0 });
   io.observe(canvasEl);
@@ -681,11 +591,11 @@ export function mountCash(canvasEl, { reduced = false, labels = [] } = {}) {
   document.addEventListener('visibilitychange', onVis);
 
   resize();
-  // A lively first drop, then a calmer spring for edits
-  setTimeout(() => { stiffness = 150; damping = 2 * Math.sqrt(150); }, 1800);
+  // Settle the first drop with a light bounce, then switch to a calmer spring for edits
+  setTimeout(() => { stiffness = 140; damping = 2 * Math.sqrt(140); }, 1800);
 
   return {
-    setValues(values, opts) { lastValues = values.slice(); setValues(values, opts); },
+    setValues,
     setPointer(x, y) { pointer = { x, y }; wake(); },
     setScroll(p) { scroll = p; wake(); },
     destroy() {
@@ -695,9 +605,6 @@ export function mountCash(canvasEl, { reduced = false, labels = [] } = {}) {
       io.disconnect();
       document.removeEventListener('visibilitychange', onVis);
       disposables.forEach((x) => x.dispose?.());
-      textures.forEach(({ t }) => t.dispose());
-      ground.geometry.dispose();
-      ground.material.dispose();
       envTex.dispose();
       pmrem.dispose();
       renderer.dispose();
