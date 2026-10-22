@@ -714,9 +714,17 @@ details.more .stepper output { background: var(--night); }
 .coins-legend span { display: grid; line-height: 1.25; }
 .coins-legend b { font-weight: 600; font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.82); }
 .coins-legend .dot { flex: none; width: 10px; height: 10px; margin-top: 3px; border-radius: 50%; }
-.coins-legend .dot-0 { background: #d8a23a; }
-.coins-legend .dot-1 { background: #34342f; outline: 1px solid rgba(255, 255, 255, 0.4); }
-.coins-legend .dot-2 { background: #c4c7cc; }
+.coins-legend .dot-0, .pile-pin.dot-0 { background: #d8a23a; }
+.coins-legend .dot-1, .pile-pin.dot-1 { background: #34342f; outline: 1px solid rgba(255, 255, 255, 0.4); }
+.coins-legend .dot-2, .pile-pin.dot-2 { background: #c4c7cc; }
+/* A dot over each pile, placed by the 3D scene, ties it to the legend */
+.pile-pin {
+  position: absolute; left: 0; top: 0;
+  width: 12px; height: 12px; border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 2px 6px rgba(0, 0, 0, 0.35);
+  opacity: 0; transition: opacity 400ms ease;
+}
+.pile-pin.is-on { opacity: 1; }
 @media (min-width: 1024px) {
   .has-coins .doc-stage { max-width: 560px; }
 }
@@ -730,7 +738,7 @@ details.more .stepper output { background: var(--night); }
 }
 @media (max-width: 767px) {
   .coins-box { height: 60vw; top: 2vw; }
-  .coins-legend { display: none; }
+  .coins-legend, .pile-pin { display: none; }
   .has-coins .doc-stage { padding-top: 58vw; }
 }
 @media (prefers-reduced-motion: reduce) {

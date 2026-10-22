@@ -15,7 +15,7 @@ try {
     const h = w >= 1024 ? 900 : w >= 768 ? 1024 : 844;
     const p = await b.newPage({ width: w, height: h, mobile: w < 1024, dsf: w < 1024 ? 2 : 1 });
     for (const path of paths) {
-      await p.goto(base + path, { settleMs: 6500 });
+      await p.goto(base + path, { settleMs: 9000 });
       if (process.env.SCROLL === 'box') { await p.eval(`scrollTo(0, document.querySelector('.coins-box').getBoundingClientRect().top + scrollY - 60)`); await sleep(3500); }
       else if (process.env.SCROLL) { await p.eval(`scrollTo(0, ${process.env.SCROLL})`); await sleep(800); }
       const name = `${w}-${path.replace(/[\/.#=&]+/g, '_') || 'home'}`;

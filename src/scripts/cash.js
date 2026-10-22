@@ -1,32 +1,33 @@
 // Three piles of euro banknotes that split into what is yours and what goes elsewhere, the way the coins
 // did. Each pile holds its exact amount: notes of one value give it its height, so the piles compare at a
-// glance, and smaller notes and coins on top complete the figure to the cent. The notes are Quant's own
-// drawings with the colours, sizes and values of the Europa series, not the official artwork, so they stay
-// within the ECB rules on reproducing banknotes. Loaded on demand; the page works the same without it.
+// glance, and smaller notes and coins on top complete the figure to the cent. Notes fall like paper does,
+// swaying and fluttering, and flip over when they jump from one pile to another.
+// The notes are Quant's own drawings with the colours, sizes and values of the Europa series, not the
+// official artwork, so they stay within the ECB rules on reproducing banknotes. Loaded on demand; the page
+// works the same without it.
 import {
-  BoxGeometry, CanvasTexture, CylinderGeometry, DirectionalLight, HemisphereLight, InstancedMesh, Matrix4, Mesh,
-  MeshStandardMaterial, NeutralToneMapping, Object3D, PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry,
-  PMREMGenerator, Scene, ShadowMaterial, SRGBColorSpace, WebGLRenderer,
+  BoxGeometry, CanvasTexture, Color, CylinderGeometry, DirectionalLight, HemisphereLight, InstancedBufferAttribute,
+  InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, NeutralToneMapping, Object3D, PCFSoftShadowMap,
+  PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, ShadowMaterial, SRGBColorSpace, Vector3, WebGLRenderer,
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-const MM = 0.0105; // a 200 € note is 1.6 units long, close to the width of the old coins
+const MM = 0.0128; // a 200 € note is about two units long: a pile as wide as the old coin piles
 const T0 = 0.05; // modelled thickness of a note; each one is scaled to the thickness of the stack
-const MAX_STACK = 4.4; // height of all the notes put together
+const MAX_STACK = 4.6; // height of all the notes put together
 const MAX_NOTES = 250; // per pile; beyond this the legend still carries the exact figure
 const COIN_SCALE = 1.35;
 const COIN_THICK = 3.2;
 const FONT = '"Jost Variable", Jost, system-ui, sans-serif';
-// Where the piles stand, as the coins did: yours in front, the rest set back
+// Where the piles stand, as the coins did: yours in front, the rest set back. Each turns its long side
+// to the camera, so the notes show their face.
 const PILES = [
-  { x: -0.3, z: 0.7, yaw: -0.85 },
-  { x: 1.0, z: -2.3, yaw: -0.6 },
-  { x: 2.0, z: 0.5, yaw: -0.75 },
+  { x: -0.4, z: 0.85, yaw: 0.36 },
+  { x: -0.45, z: -2.5, yaw: 0.5 },
+  { x: 2.0, z: 0.7, yaw: 0.3 },
 ];
-const BANDS = ['#d8a23a', '#34342f', '#c4c7cc']; // the legend's colours
 // Where the coins rest on the top note, in its own coordinates
-const COIN_SPOTS = [[-0.42, -0.14], [0.02, -0.15], [0.44, -0.12], [-0.38, 0.17], [0.06, 0.16], [0.46, 0.18], [-0.2, 0.01], [0.24, 0.02]];
-
+const COIN_SPOTS = [[-0.5, -0.16], [0.02, -0.18], [0.52, -0.14], [-0.46, 0.2], [0.06, 0.19], [0.54, 0.21], [-0.22, 0.02], [0.28, 0.03]];
 
 // Europa series: value, size in mm and colour family
 const NOTES = [
@@ -232,7 +233,7 @@ function drawCoin(k) {
 
 // A note lies a little bowed, like paper does
 function noteGeometry(w, h, t, bow) {
-  const geo = new BoxGeometry(w, t, h, 4, 1, 1);
+  const geo = new BoxGeometry(w, t, h, 12, 1, 3); // enough vertices to bend along and across
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i) / (w / 2);
@@ -270,9 +271,32 @@ function pileContent(amount, base) {
   return { notes, coins };
 }
 
+// ---------- Paper that bends ----------
+
+// Every face of a note gets the same change to its vertices: a slow wave along the note with a faster,
+// smaller one on top (two octaves read as paper, one reads as rubber) and a curl across it. aBend scales
+// it per note, so a note lying still is flat. The stack's thickness scale is undone so all notes bend alike.
+function bendable(material, uTime) {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = uTime;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute float aBend;
+attribute float aPhase;
+uniform float uTime;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+float stackScale = max(length(instanceMatrix[1].xyz), 0.0001);
+float wave = sin(position.x * 2.3 + uTime * 6.5 + aPhase) * 0.7 + sin(position.x * 5.2 - uTime * 12.0 + aPhase * 1.7) * 0.3;
+float curl = position.z * position.z * 2.6 - 0.12;
+transformed.y += aBend * (wave + curl) / stackScale;`);
+  };
+  material.customProgramCacheKey = () => 'quant-paper';
+  return material;
+}
+
 // ---------- Scene ----------
 
-export function mountCash(canvasEl, { reduced = false } = {}) {
+export function mountCash(canvasEl, { reduced = false, pins = [], legend = null } = {}) {
   const renderer = new WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, matchMedia('(max-width: 767px)').matches ? 1.5 : 2));
   renderer.outputColorSpace = SRGBColorSpace;
@@ -313,19 +337,33 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
     disposables.push(t);
     return t;
   };
+  const uTime = { value: 0 };
+  const rand = Math.random;
 
   // One instanced mesh per note value and per coin
   const kinds = {};
   const zero = new Matrix4().makeScale(0, 0, 0);
-  const addKind = (key, geo, mats, capacity) => {
+  const addKind = (key, geo, mats, capacity, paper = false) => {
+    let bendAttr = null;
+    if (paper) {
+      bendAttr = new InstancedBufferAttribute(new Float32Array(capacity), 1);
+      const phase = new InstancedBufferAttribute(new Float32Array(capacity).map(() => Math.random() * 6.283), 1);
+      geo.setAttribute('aBend', bendAttr);
+      geo.setAttribute('aPhase', phase);
+    }
     const mesh = new InstancedMesh(geo, mats, capacity);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.frustumCulled = false;
-    for (let i = 0; i < capacity; i++) mesh.setMatrixAt(i, zero);
+    const shade = new Color();
+    for (let i = 0; i < capacity; i++) {
+      mesh.setMatrixAt(i, zero);
+      // Each sheet a shade apart, so the side of a stack shows its layers
+      if (paper) mesh.setColorAt(i, shade.setScalar(i % 2 ? 0.86 + rand() * 0.06 : 0.95 + rand() * 0.05));
+    }
     scene.add(mesh);
     disposables.push(geo, ...mats);
-    kinds[key] = { mesh, free: Array.from({ length: capacity }, (_, i) => capacity - 1 - i), items: [] };
+    kinds[key] = { mesh, free: Array.from({ length: capacity }, (_, i) => capacity - 1 - i), items: [], bendAttr, paper };
   };
 
   const redraws = [];
@@ -333,10 +371,10 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
     const surface = tex(drawNoteSurface(d), false);
     const front = tex(drawNote(d));
     const back = tex(drawNote(d, { back: true }));
-    const edge = new MeshStandardMaterial({ color: d.paper, roughness: 0.9 });
-    const top = new MeshStandardMaterial({ map: front, roughnessMap: surface, metalnessMap: surface, roughness: 1, metalness: 1, envMapIntensity: 0.9 });
-    const bottom = new MeshStandardMaterial({ map: back, roughness: 0.8 });
-    addKind(`note${di}`, noteGeometry(d.w * MM, d.h * MM, T0, 0.006), [edge, edge, top, bottom, edge, edge], 3 * MAX_NOTES + 60);
+    const edge = bendable(new MeshStandardMaterial({ color: d.paper, roughness: 0.9 }), uTime);
+    const top = bendable(new MeshStandardMaterial({ map: front, roughnessMap: surface, metalnessMap: surface, roughness: 1, metalness: 1, envMapIntensity: 0.9 }), uTime);
+    const bottom = bendable(new MeshStandardMaterial({ map: back, roughness: 0.8 }), uTime);
+    addKind(`note${di}`, noteGeometry(d.w * MM, d.h * MM, T0, 0.006), [edge, edge, top, bottom, edge, edge], 3 * MAX_NOTES + 60, true);
     redraws.push(() => { front.image = drawNote(d); front.needsUpdate = true; back.image = drawNote(d, { back: true }); back.needsUpdate = true; });
   });
   COINS.forEach((k, ci) => {
@@ -348,43 +386,48 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
     redraws.push(() => { face.image = drawCoin(k); face.needsUpdate = true; });
   });
 
-  // A paper band in the colour of the legend wraps each pile
-  const bands = BANDS.map((color, p) => {
-    const mesh = new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ color, roughness: 0.7, metalness: p === 1 ? 0 : 0.35 }));
-    mesh.castShadow = true;
-    mesh.scale.set(0.0001, 0.0001, 0.0001);
-    scene.add(mesh);
-    disposables.push(mesh.geometry, mesh.material);
-    return { mesh, h: 0, tH: 0, d: 1 };
-  });
-
   // Draw again once the brand typeface is ready
   let alive = true;
   if (document.fonts && !document.fonts.check(`700 40px ${FONT}`)) {
     document.fonts.load(`700 40px ${FONT}`).then(() => { if (alive) { redraws.forEach((f) => f()); wake(); } }).catch(() => {});
   }
 
-  // ---------- Pieces and their springs ----------
-  let stiffness = 120;
-  let damping = 14; // a little bounce for the first drop
+  // ---------- Pieces ----------
+  let stiffness = 140;
+  let damping = 2 * Math.sqrt(140);
   let thick = 0.09;
+
+  // Paper does not drop: it glides down swaying from side to side, rocking with the sway, and slows
+  // just before it settles. Coins fall straighter and spin.
+  function startFall(it, delay, now, coin) {
+    it.fall = {
+      start: now + delay,
+      dur: coin ? 620 + rand() * 200 : 950 + rand() * 550,
+      h: 5 + rand() * 3,
+      ax: coin ? 0.08 : 0.5 + rand() * 0.6,
+      az: coin ? 0.06 : 0.35 + rand() * 0.45,
+      f1: 1.1 + rand() * 0.6,
+      f2: 2.7 + rand() * 1.3,
+      ph: rand() * 6.283,
+      spin: (rand() - 0.5) * (coin ? 6 : 1.8),
+      sign: rand() < 0.5 ? -1 : 1,
+    };
+    it.p = { x: it.t.x, y: it.t.y + it.fall.h, z: it.t.z };
+  }
 
   function makeItem(key, slot, now, delay) {
     const k = kinds[key];
     const idx = k.free.pop();
     if (idx === undefined) return null;
-    const item = {
+    const it = {
       idx, pile: slot.pile, slotIndex: slot.index,
-      p: reduced ? { x: slot.x, y: slot.y, z: slot.z } : { x: slot.x, y: slot.y + 9 + Math.random() * 3, z: slot.z },
-      v: { x: 0, y: 0, z: 0 },
-      t: { x: slot.x, y: slot.y, z: slot.z },
-      ry: slot.ry, tRy: slot.ry,
-      s: 1, tS: 1,
-      wait: now + delay,
-      hop: null, leaving: false,
+      p: { x: slot.x, y: slot.y, z: slot.z }, v: { x: 0, y: 0, z: 0 }, t: { x: slot.x, y: slot.y, z: slot.z },
+      ry: slot.ry, tRy: slot.ry, s: 1, tS: 1,
+      fall: null, hop: null, leaving: false, top: false, bend: 0,
     };
-    k.items.push(item);
-    return item;
+    if (!reduced) startFall(it, delay, now, !k.paper);
+    k.items.push(it);
+    return it;
   }
 
   // Every note and coin a pile needs, in world coordinates
@@ -398,8 +441,8 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
     const seen = {};
     content.notes.forEach((di, j) => {
       const key = `note${di}`;
-      const at = place((r() - 0.5) * 0.09, (r() - 0.5) * 0.09);
-      slots.push({ key, pile, index: (seen[key] = (seen[key] ?? -1) + 1), x: at.x, y: (j + 0.5) * thick, z: at.z, ry: P.yaw + (r() - 0.5) * 0.14 });
+      const at = place((r() - 0.5) * 0.1, (r() - 0.5) * 0.1);
+      slots.push({ key, pile, index: (seen[key] = (seen[key] ?? -1) + 1), x: at.x, y: (j + 0.5) * thick, z: at.z, ry: P.yaw + (r() - 0.5) * 0.14, top: j === content.notes.length - 1 });
     });
     // Loose change on top of the notes, one short stack per coin, all within the top note
     const top = content.notes.length * thick;
@@ -415,8 +458,10 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
       slots.push({ key, pile, index: (seen[key] = (seen[key] ?? -1) + 1), x: at.x, y: top + (level + 0.5) * th, z: at.z, ry: r() * Math.PI * 2 });
       level++;
     });
-    return { slots, height: top };
+    return { slots, height: top + (content.coins.length ? 0.12 : 0), empty: !content.notes.length && !content.coins.length };
   }
+
+  let piles = [{ height: 0, empty: true }, { height: 0, empty: true }, { height: 0, empty: true }];
 
   // Money moves between piles the way the coins did: what one pile gives up jumps to another
   function setValues(values, { instant = false } = {}) {
@@ -428,6 +473,7 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
     const count = contents.reduce((a, c) => a + c.notes.length, 0);
     thick = Math.min(0.09, Math.max(0.016, MAX_STACK / Math.max(1, count)));
     const laid = contents.map((c, p) => pileSlots(c, p));
+    piles = laid.map((l) => ({ height: l.height, empty: l.empty }));
     const wanted = {};
     laid.forEach((l) => l.slots.forEach((s) => (wanted[s.key] ||= []).push(s)));
 
@@ -448,13 +494,16 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
       for (const [item, slot] of assign) {
         let it = item;
         if (!it && pool.length) {
-          // Taken from the top of a shrinking pile, it jumps to the growing one in an arc
+          // Taken from the top of a shrinking pile, it flips over in an arc to the growing one
           it = pool.pop();
-          if (!instant && !reduced) it.hop = { start: now + moved * 28, dur: 560, h: 1.6 + Math.random() * 0.6 };
+          if (!instant && !reduced) {
+            it.fall = null;
+            it.hop = { start: now + moved * 26, dur: 640 + rand() * 160, h: 1.6 + rand() * 0.8, flip: rand() < 0.5 ? -1 : 1 };
+          }
           moved++;
         }
         if (!it) {
-          it = makeItem(key, slot, now, instant ? 0 : moved * 30);
+          it = makeItem(key, slot, now, instant ? 0 : moved * 34);
           moved++;
           if (!it) continue;
         }
@@ -462,27 +511,26 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
         it.slotIndex = slot.index;
         it.t = { x: slot.x, y: slot.y, z: slot.z };
         it.tRy = slot.ry;
+        it.top = !!slot.top;
       }
+      // What is left over flutters up and away
       for (const it of pool) {
         it.leaving = true;
+        it.fall = null;
         it.tS = 0;
-        it.t = { ...it.t, y: it.t.y + 1.6 };
+        it.t = { x: it.t.x + (rand() - 0.5) * 1.2, y: it.t.y + 2.2, z: it.t.z + (rand() - 0.5) * 1.2 };
       }
     }
-    bands.forEach((band, p) => {
-      const first = contents[p].notes[0];
-      band.tH = laid[p].height;
-      band.d = first === undefined ? 0.8 : NOTES[first].h * MM + 0.05;
-    });
     if (instant || reduced) {
-      for (const k of Object.values(kinds)) for (const it of k.items) { it.p = { ...it.t }; it.v = { x: 0, y: 0, z: 0 }; it.s = it.tS; it.ry = it.tRy; it.hop = null; it.wait = 0; }
-      bands.forEach((band) => { band.h = band.tH; });
+      for (const k of Object.values(kinds)) for (const it of k.items) { it.p = { ...it.t }; it.v = { x: 0, y: 0, z: 0 }; it.s = it.tS; it.ry = it.tRy; it.hop = null; it.fall = null; }
     }
     wake();
   }
 
   // ---------- Frame loop ----------
   const o = new Object3D();
+  o.rotation.order = 'YXZ'; // yaw last, so the roll turns a note about its own length
+  const pin = new Vector3();
   let raf = 0;
   let last = 0;
   let calmSince = 0;
@@ -490,6 +538,11 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
   let pointer = { x: 0, y: 0 };
   let cam = { x: 0, y: 0 };
   let scroll = 0;
+  let framing = 1; // how far the camera sits: closer in a wide, short box so the piles keep their size
+  let pan = 0; // sideways shift that keeps the piles clear of a legend beside them
+  const right = new Vector3();
+  const TAU = Math.PI * 2;
+  const smooth = (q) => q * q * (3 - 2 * q);
 
   function resize() {
     const w = canvasEl.clientWidth;
@@ -498,81 +551,140 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    framing = w / h >= 1 ? 0.7 : 1;
+    const side = legend && w / h >= 1 && getComputedStyle(legend).display !== 'none' ? legend.offsetWidth + 16 : 0;
+    const dist = Math.hypot(base.x - target.x, base.y - target.y, base.z - target.z) * framing;
+    pan = (side / 2 / w) * 2 * Math.tan((camera.fov * Math.PI) / 360) * dist * camera.aspect;
   }
 
   function frame(now) {
     raf = 0;
     const dt = Math.min(0.033, (now - (last || now)) / 1000) || 0.016;
     last = now;
+    uTime.value = now / 1000;
     let moving = false;
+    const landed = [0, 0, 0];
+    // A breath of air over the top notes while the scene is awake, fading out before it rests
+    const breeze = reduced ? 0 : 0.016 * Math.max(0, 1 - (now - calmSince) / 5000);
 
-    for (const [key, k] of Object.entries(kinds)) {
+    for (const k of Object.values(kinds)) {
       if (!k.items.length) continue;
-      const isNote = key.startsWith('note');
+      let bendDirty = false;
       for (let n = k.items.length - 1; n >= 0; n--) {
         const it = k.items[n];
-        if (now < it.wait) { moving = true; continue; }
-        for (const ax of ['x', 'y', 'z']) {
-          const f = -stiffness * (it.p[ax] - it.t[ax]) - damping * it.v[ax];
-          it.v[ax] += f * dt;
-          it.p[ax] += it.v[ax] * dt;
-          if (Math.abs(it.v[ax]) > 0.002 || Math.abs(it.p[ax] - it.t[ax]) > 0.002) moving = true;
-        }
-        it.ry += (it.tRy - it.ry) * (1 - Math.exp(-dt * 8));
-        it.s += (it.tS - it.s) * (1 - Math.exp(-dt * 7));
-        if (Math.abs(it.tRy - it.ry) > 0.001 || Math.abs(it.tS - it.s) > 0.002) moving = true;
-        let hopY = 0;
-        let tilt = 0;
-        if (it.hop) {
-          const q = (now - it.hop.start) / it.hop.dur;
-          if (q >= 1) it.hop = null;
-          else if (q > 0) { hopY = Math.sin(q * Math.PI) * it.hop.h; tilt = Math.sin(q * Math.PI) * 0.9; }
+        let x;
+        let y;
+        let z;
+        let roll = 0;
+        let pitch = 0;
+        let yaw = it.ry;
+        let bendGoal = 0;
+        if (it.fall && now < it.fall.start) {
+          // Not dropped yet: kept out of sight
+          k.mesh.setMatrixAt(it.idx, zero);
           moving = true;
+          continue;
         }
+        if (it.fall) {
+          const f = it.fall;
+          const q = Math.min(1, Math.max(0, (now - f.start) / f.dur));
+          const fade = 1 - q;
+          const w1 = Math.sin(q * f.f1 * TAU + f.ph);
+          const w2 = Math.sin(q * f.f2 * TAU + f.ph * 1.3);
+          x = it.t.x + (f.ax * w1 + f.ax * 0.25 * w2) * fade * f.sign;
+          z = it.t.z + f.az * Math.cos(q * f.f1 * TAU + f.ph) * fade;
+          y = it.t.y + f.h * (1 - Math.sin((q * Math.PI) / 2));
+          roll = 0.6 * w1 * fade * f.sign; // rocks with the sway, as a leaf does
+          pitch = 0.28 * w2 * fade;
+          yaw = it.tRy + f.spin * fade;
+          bendGoal = k.paper ? 0.08 * (0.35 + 0.65 * fade) : 0;
+          moving = true;
+          if (q >= 1) { it.fall = null; it.p = { x: it.t.x, y: it.t.y, z: it.t.z }; it.v = { x: 0, y: -0.5, z: 0 }; it.ry = it.tRy; }
+        } else {
+          for (const ax of ['x', 'y', 'z']) {
+            const f = -stiffness * (it.p[ax] - it.t[ax]) - damping * it.v[ax];
+            it.v[ax] += f * dt;
+            it.p[ax] += it.v[ax] * dt;
+            if (Math.abs(it.v[ax]) > 0.002 || Math.abs(it.p[ax] - it.t[ax]) > 0.002) moving = true;
+          }
+          it.ry += (it.tRy - it.ry) * (1 - Math.exp(-dt * 8));
+          if (Math.abs(it.tRy - it.ry) > 0.001) moving = true;
+          ({ x, y, z } = it.p);
+          yaw = it.ry;
+          if (it.hop) {
+            const q = (now - it.hop.start) / it.hop.dur;
+            if (q >= 1) it.hop = null;
+            else if (q > 0) {
+              const arc = Math.sin(q * Math.PI);
+              y += arc * it.hop.h;
+              roll = it.hop.flip * smooth(q) * TAU; // one full turn over its length
+              bendGoal = k.paper ? 0.1 * arc : 0;
+            }
+            moving = true;
+          } else if (it.leaving) {
+            roll = (1 - it.s) * 2.4;
+            bendGoal = k.paper ? 0.09 : 0;
+          } else if (it.top && k.paper) {
+            bendGoal = breeze;
+          }
+        }
+        it.s += (it.tS - it.s) * (1 - Math.exp(-dt * 6));
+        if (Math.abs(it.tS - it.s) > 0.002) moving = true;
         if (it.leaving && it.s < 0.02) {
           k.mesh.setMatrixAt(it.idx, zero);
+          if (k.bendAttr) { k.bendAttr.setX(it.idx, 0); bendDirty = true; }
           k.free.push(it.idx);
           k.items.splice(n, 1);
           continue;
         }
-        o.position.set(it.p.x, it.p.y + hopY, it.p.z);
-        o.rotation.set(tilt, it.ry, 0);
-        o.scale.set(it.s, it.s * (isNote ? thick / T0 : 1), it.s);
+        if (!it.fall && !it.hop && !it.leaving) {
+          landed[it.pile] = Math.max(landed[it.pile], it.p.y + (k.paper ? thick / 2 : 0.05));
+        }
+        if (k.bendAttr) {
+          const before = it.bend;
+          it.bend += (bendGoal - it.bend) * (1 - Math.exp(-dt * 9));
+          if (Math.abs(it.bend - before) > 1e-5) { k.bendAttr.setX(it.idx, it.bend); bendDirty = true; }
+        }
+        o.position.set(x, y, z);
+        o.rotation.set(roll, yaw, pitch);
+        o.scale.set(it.s, it.s * (k.paper ? thick / T0 : 1), it.s);
         o.updateMatrix();
         k.mesh.setMatrixAt(it.idx, o.matrix);
       }
       k.mesh.instanceMatrix.needsUpdate = true;
+      if (bendDirty) k.bendAttr.needsUpdate = true;
     }
-
-    // Bands wrap only the notes that have landed, so they never stand empty while money is in the air
-    const landed = [0, 0, 0];
-    for (const [key, k] of Object.entries(kinds)) {
-      if (!key.startsWith('note')) continue;
-      for (const it of k.items) {
-        if (it.leaving || it.hop || now < it.wait || Math.abs(it.p.y - it.t.y) > 0.25) continue;
-        landed[it.pile] = Math.max(landed[it.pile], it.p.y + thick / 2);
-      }
-    }
-    bands.forEach((band, p) => {
-      const goal = Math.min(band.tH, landed[p]);
-      band.h += (goal - band.h) * (1 - Math.exp(-dt * 10));
-      if (Math.abs(goal - band.h) > 0.002) moving = true;
-      const P = PILES[p];
-      const on = band.h > 0.02;
-      band.mesh.position.set(P.x, band.h / 2, P.z);
-      band.mesh.rotation.set(0, P.yaw, 0);
-      band.mesh.scale.set(on ? 0.26 : 0.0001, on ? band.h + 0.012 : 0.0001, on ? band.d : 0.0001);
-    });
 
     // Camera: pointer parallax (spring-smoothed) and a dolly as the hero scrolls away
     cam.x += (pointer.x - cam.x) * 0.06;
     cam.y += (pointer.y - cam.y) * 0.06;
     const sway = reduced ? 0 : Math.sin(now / 2600) * 0.25;
-    camera.position.set(base.x + cam.x * 2.2 + sway, base.y - cam.y * 1.4 - scroll * 2.5, base.z - scroll * 4);
-    camera.lookAt(target.x, target.y + scroll * 0.6, target.z);
+    const ty = target.y + scroll * 0.6;
+    camera.position.set(
+      target.x + (base.x + cam.x * 2.2 + sway - target.x) * framing,
+      ty + (base.y - cam.y * 1.4 - scroll * 2.5 - ty) * framing,
+      target.z + (base.z - scroll * 4 - target.z) * framing,
+    );
+    camera.lookAt(target.x, ty, target.z);
+    camera.updateMatrixWorld();
+    if (pan) {
+      camera.position.addScaledVector(right.setFromMatrixColumn(camera.matrixWorld, 0), -pan);
+      camera.updateMatrixWorld();
+    }
     if (Math.abs(pointer.x - cam.x) > 0.001 || Math.abs(pointer.y - cam.y) > 0.001) moving = true;
 
     renderer.render(scene, camera);
+
+    // A dot in the legend's colour floats over each pile, so the legend reads without wrapping the money
+    const w = canvasEl.clientWidth;
+    const h = canvasEl.clientHeight;
+    pins.forEach((el, i) => {
+      const P = PILES[i];
+      if (!P) return;
+      pin.set(P.x, Math.max(landed[i], 0.05) + 0.5, P.z).project(camera);
+      el.style.transform = `translate(${((pin.x + 1) / 2) * w}px, ${((1 - pin.y) / 2) * h}px) translate(-50%, -50%)`;
+      el.classList.toggle('is-on', !piles[i].empty && landed[i] > 0);
+    });
 
     if (moving) calmSince = now;
     // Keep a gentle idle sway for a few seconds after the last movement, then rest
@@ -591,8 +703,10 @@ export function mountCash(canvasEl, { reduced = false } = {}) {
   document.addEventListener('visibilitychange', onVis);
 
   resize();
-  // Settle the first drop with a light bounce, then switch to a calmer spring for edits
-  setTimeout(() => { stiffness = 140; damping = 2 * Math.sqrt(140); }, 1800);
+  // A touch of bounce while the first notes land, then a calmer spring for edits
+  stiffness = 120;
+  damping = 14;
+  setTimeout(() => { stiffness = 140; damping = 2 * Math.sqrt(140); }, 2600);
 
   return {
     setValues,

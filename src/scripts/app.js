@@ -505,7 +505,7 @@ export function boot() {
     whenIdle(() => {
       import('./cash.js').then(({ mountCash }) => {
         if (!coinCanvas.isConnected) return;
-        coinsApi = mountCash(coinCanvas, { reduced: reduce() });
+        coinsApi = mountCash(coinCanvas, { reduced: reduce(), pins: [...hero.querySelectorAll('.pile-pin')], legend: hero.querySelector('.coins-legend') });
         hero.classList.add('has-coins');
         onCleanup(() => { coinsApi?.destroy(); coinsApi = null; });
         // The whole amount lands in one pile first, then splits into the three
