@@ -18,7 +18,7 @@ document.addEventListener('astro:after-swap', () => {
 // Fields each calculator accepts, with their allowed values
 const SCHEMA = {
   sueldo: {
-    bruto: ['money'], pagas: ['enum', ['14', '12']], contrato: ['enum', ['indefinido', 'temporal']],
+    entrada: ['enum', ['anual', 'mes', 'neto']], bruto: ['money'], pagas: ['enum', ['14', '12']], contrato: ['enum', ['indefinido', 'temporal']],
     hijos: ['int', 0, LIMITS.hijos], menores3: ['int', 0, LIMITS.hijos], compartidos: ['bool'], situacion: ['enum', ['3', '2', '1']],
   },
   finiquito: {
@@ -175,9 +175,15 @@ export function boot() {
   const announcer = hero.querySelector('[data-announce]');
   const dock = document.querySelector('[data-dock]');
   const dockValue = document.querySelector('[data-dock-value]');
+  const dockLabel = document.querySelector('[data-dock-label]');
   const fmt0 = new Intl.NumberFormat(locale, { maximumFractionDigits: 2, useGrouping: 'always' });
+  const fmtCents = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' });
+  // Whole euros without decimals, anything with cents with both digits (1.628,50, not 1.628,5)
+  const money = (n) => (Number.isInteger(Math.round(n * 100) / 100) ? fmt0 : fmtCents).format(n);
   const unit = calc === 'hora' ? '/h' : '';
-  const label = doc.getAttribute('aria-label');
+  const defaultLabel = doc.getAttribute('aria-label');
+  let label = defaultLabel;
+  let lastRender = null;
   let sharedPending = false;
   let lastCoins = null;
   let coinsReady = false;
@@ -204,7 +210,7 @@ export function boot() {
       form.querySelectorAll(`[name="${k}"]`).forEach((el) => {
         if (el.type === 'radio') el.checked = String(el.value) === String(v);
         else if (el.type === 'checkbox') el.checked = !!v;
-        else if (el.dataset.money !== undefined) el.value = fmt0.format(+v || 0);
+        else if (el.dataset.money !== undefined) el.value = money(+v || 0);
         else el.value = v;
       });
       const range = form.querySelector(`[data-sync="${k}"]`);
@@ -223,6 +229,23 @@ export function boot() {
     else form.querySelectorAll('[data-today]').forEach((el) => { el.value = today(); });
   }
   form.querySelectorAll('[data-sync]').forEach(setPct);
+
+  // ---------- Salary given as yearly gross, payslip gross or monthly net ----------
+  const entradaBox = form.querySelector('[data-entrada]');
+  const entradaCfg = entradaBox ? JSON.parse(entradaBox.dataset.entrada) : null;
+  let shownEntrada = 'anual';
+  function applyEntrada(mode) {
+    if (!entradaCfg?.[mode]) return;
+    const cfg = entradaCfg[mode];
+    shownEntrada = mode;
+    form.querySelector('[data-entrada-label]').textContent = cfg.label;
+    form.querySelector('[data-entrada-hint]').textContent = cfg.hint;
+    const range = form.querySelector('[data-sync="bruto"]');
+    Object.assign(range, { min: cfg.min, max: cfg.max, step: cfg.step });
+    range.setAttribute('aria-label', cfg.label);
+    range.value = parseMoney(form.querySelector('[name="bruto"]').value);
+    setPct(range);
+  }
 
   // ---------- Render ----------
   function paintResult(value, opts) {
@@ -248,7 +271,10 @@ export function boot() {
     const m3 = form.querySelector('input[name="menores3"]');
     if (m3 && +m3.value !== (s.menores3 ?? 0)) writeForm({ menores3: s.menores3 ?? 0 });
 
+    if (entradaCfg && (s.entrada ?? 'anual') !== shownEntrada) applyEntrada(s.entrada ?? 'anual');
     const r = compute(calc, s, locale);
+    label = r.label ?? defaultLabel;
+    if (dockLabel) dockLabel.textContent = label;
     const changedRows = [];
     for (const [k, v] of Object.entries(r.out)) {
       hero.querySelectorAll(`[data-out="${k}"]`).forEach((el) => {
@@ -278,9 +304,10 @@ export function boot() {
 
     if (r.stages) renderStages(r);
     if (r.mark !== undefined) markRows(r.mark);
-    syncFigure(s);
+    syncFigure(s, r);
     writeStore(calc, s);
-    return { s, r };
+    lastRender = { s, r };
+    return lastRender;
   }
 
   // A shared link is applied once; as soon as the visitor edits, the address drops the old figures
@@ -294,6 +321,14 @@ export function boot() {
   form.addEventListener('input', (e) => {
     const el = e.target;
     consumeShared();
+    // Switching how the salary is given keeps the same salary, just written the new way
+    if (el.name === 'entrada' && lastRender) {
+      const { s, r } = lastRender;
+      const pagas = +s.pagas === 12 ? 12 : 14;
+      const amount = el.value === 'mes' ? r.raw.bruto / pagas : el.value === 'neto' ? r.raw.netoMes : r.raw.bruto;
+      applyEntrada(el.value);
+      writeForm({ bruto: el.value === 'anual' ? Math.round(amount) : Math.round(amount * 100) / 100 });
+    }
     if (el.dataset.sync) {
       const money = form.querySelector(`[name="${el.dataset.sync}"]`);
       money.value = fmt0.format(+el.value);
@@ -307,7 +342,7 @@ export function boot() {
 
   form.addEventListener('focusout', (e) => {
     const el = e.target;
-    if (el.dataset && el.dataset.money !== undefined) el.value = fmt0.format(Math.min(LIMITS.money, parseMoney(el.value)));
+    if (el.dataset && el.dataset.money !== undefined) el.value = money(Math.min(LIMITS.money, parseMoney(el.value)));
     // A cleared date would be calculated with a fallback the visitor cannot see: put a real one back
     if (el.type === 'date' && parseDate(el.value) === null) {
       el.value = el.dataset.today !== undefined ? today() : el.defaultValue;
@@ -450,17 +485,18 @@ export function boot() {
   const fig = document.querySelector('[data-fig]');
   let figTouched = false;
   function paintFigure(state, bruto) {
-    const r = compute('sueldo', { ...state, bruto }, locale);
+    const r = compute('sueldo', { ...state, entrada: 'anual', bruto }, locale);
     const days = r.raw.diasHacienda;
     document.querySelector('[data-fig-days]').textContent = days;
     document.querySelector('[data-fig-out]').textContent = f.eur0(bruto);
     const weeks = Math.round(days / 7);
     document.querySelectorAll('.figure-year i').forEach((el, i) => el.classList.toggle('on', i < weeks));
   }
-  function syncFigure(s) {
-    if (!fig || s.bruto == null) return;
-    if (!figTouched) { fig.value = Math.max(+fig.min, Math.min(+fig.max, s.bruto)); setPct(fig); }
-    paintFigure(s, figTouched ? +fig.value : s.bruto);
+  function syncFigure(s, r) {
+    const bruto = r?.raw?.bruto;
+    if (!fig || bruto == null) return;
+    if (!figTouched) { fig.value = Math.max(+fig.min, Math.min(+fig.max, bruto)); setPct(fig); }
+    paintFigure(s, figTouched ? +fig.value : bruto);
   }
   if (fig) {
     setPct(fig);
@@ -477,7 +513,7 @@ export function boot() {
       consumeShared();
       render();
       hero.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth' });
-      const first = form.querySelector(`[name="${Object.keys(state)[0]}"]`);
+      const first = form.querySelector(`[name="${Object.keys(state).find((k) => k !== 'entrada')}"]`);
       const target = first?.type === 'hidden' ? first.closest('[data-stepper]')?.querySelector('button') : first;
       target?.focus({ preventScroll: true });
     });

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sueldoNeto, retencionIRPF, cuotaAutonomo, factura, precioHora, escala, netoAutonomo, tramoAutonomo, facturacionNecesaria,
-  finiquito, mesesServicio, parseDate, prestacionParo, duracionParo, asalariadoOAutonomo,
+  finiquito, mesesServicio, parseDate, prestacionParo, duracionParo, asalariadoOAutonomo, brutoDesdeNeto,
 } from '../src/lib/tax.js';
 
 test('escala', () => {
@@ -151,4 +151,16 @@ test('asalariado o autónomo: misma cifra neta', () => {
   assert.ok(Math.abs(r.netoAutonomo - r.netoAsalariado) < 0.05, `${r.netoAutonomo} vs ${r.netoAsalariado}`);
   assert.ok(r.facturacion > r.bruto && r.facturacion < r.coste);
   assert.ok(Math.abs(r.coste - 39195) < 0.01); // 30.000 + 30,65 % de la empresa
+});
+
+test('del neto del mes al bruto anual', () => {
+  // 30.000 € brutos en 14 pagas dejan 1.628,50 € al mes; al revés vuelve a unos 30.000 €. El neto sube a
+  // escalones de céntimo, así que varios brutos casi iguales dejan el mismo neto
+  assert.equal(brutoDesdeNeto(1628.5, { pagas: 14 }), 30000); // the round figure, not 29.995,77
+  const back = brutoDesdeNeto(1712.37, { pagas: 14 });
+  assert.ok(Math.abs(sueldoNeto({ bruto: back, pagas: 14 }).netoMes - 1712.37) < 0.03, `${back}`);
+  const b = brutoDesdeNeto(2100, { pagas: 12, hijos: 2 });
+  assert.ok(Math.abs(sueldoNeto({ bruto: b, pagas: 12, hijos: 2 }).netoMes - 2100) < 0.02);
+  assert.equal(brutoDesdeNeto(0), 0);
+  assert.ok(Number.isFinite(brutoDesdeNeto(1e12)));
 });

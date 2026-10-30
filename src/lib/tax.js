@@ -151,6 +151,30 @@ export function sueldoNeto({ bruto, pagas = 14, hijos = 0, menores3 = 0, compart
   };
 }
 
+// Bruto anual que deja un neto dado en un mes normal (lo inverso de sueldoNeto), para quien solo sabe
+// lo que le llega al banco. El neto crece con el bruto, así que basta una búsqueda binaria.
+export function brutoDesdeNeto(netoMes, opts = {}) {
+  const objetivo = money(netoMes);
+  if (objetivo <= 0) return 0;
+  const neto = (bruto) => sueldoNeto({ ...opts, bruto }).netoMes;
+  let lo = 0;
+  let hi = Math.max(1000, objetivo * 30);
+  while (neto(hi) < objetivo && hi < LIMITS.money) hi *= 2;
+  for (let i = 0; i < 60 && hi - lo > 0.005; i++) {
+    const mid = (lo + hi) / 2;
+    if (neto(mid) < objetivo) lo = mid;
+    else hi = mid;
+  }
+  // Rounding in the payslip makes several almost equal salaries leave the same net: prefer the round one,
+  // which is the figure a contract would carry
+  const cents = Math.round(objetivo * 100);
+  for (const step of [1000, 500, 100, 50, 10, 5, 1]) {
+    const c = Math.round(hi / step) * step;
+    if (Math.abs(c - hi) <= hi * 0.002 && Math.round(neto(c) * 100) === cents) return c;
+  }
+  return round2(hi);
+}
+
 // Autónomos: tabla de 2025 prorrogada para 2026; tipo 31,5 % (30,6 % + MEI 0,9 %).
 // `desde` incluido, `hasta` excluido salvo en la tabla reducida, que va «hasta» cada tope.
 export const TRAMOS_AUTONOMOS = [

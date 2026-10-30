@@ -12,9 +12,9 @@ import {
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-const MM = 0.0128; // a 200 € note is about two units long: a pile as wide as the old coin piles
+const MM = 0.017; // a note covers about the same area as one of the old coins (two units across)
 const T0 = 0.05; // modelled thickness of a note; each one is scaled to the thickness of the stack
-const MAX_STACK = 4.6; // height of all the notes put together
+const MAX_STACK = 5.6; // height of all the notes put together, as the 28 coins stood
 const MAX_NOTES = 250; // per pile; beyond this the legend still carries the exact figure
 const COIN_SCALE = 1.35;
 const COIN_THICK = 3.2;
@@ -22,12 +22,12 @@ const FONT = '"Jost Variable", Jost, system-ui, sans-serif';
 // Where the piles stand, as the coins did: yours in front, the rest set back. Each turns its long side
 // to the camera, so the notes show their face.
 const PILES = [
-  { x: -0.4, z: 0.85, yaw: 0.36 },
-  { x: -0.45, z: -2.5, yaw: 0.5 },
-  { x: 2.0, z: 0.7, yaw: 0.3 },
+  { x: -0.45, z: 0.9, yaw: 0.36 },
+  { x: -0.5, z: -2.8, yaw: 0.5 },
+  { x: 2.25, z: 0.9, yaw: 0.3 },
 ];
 // Where the coins rest on the top note, in its own coordinates
-const COIN_SPOTS = [[-0.5, -0.16], [0.02, -0.18], [0.52, -0.14], [-0.46, 0.2], [0.06, 0.19], [0.54, 0.21], [-0.22, 0.02], [0.28, 0.03]];
+const COIN_SPOTS = [[-0.68, -0.22], [0.02, -0.24], [0.7, -0.2], [-0.62, 0.27], [0.08, 0.26], [0.72, 0.28], [-0.3, 0.02], [0.38, 0.04]];
 
 // Europa series: value, size in mm and colour family
 const NOTES = [
@@ -471,7 +471,7 @@ export function mountCash(canvasEl, { reduced = false, pins = [], legend = null 
     const b = baseValue(total);
     const contents = vals.map((v) => pileContent(v, b));
     const count = contents.reduce((a, c) => a + c.notes.length, 0);
-    thick = Math.min(0.09, Math.max(0.016, MAX_STACK / Math.max(1, count)));
+    thick = Math.min(0.2, Math.max(0.016, MAX_STACK / Math.max(1, count)));
     const laid = contents.map((c, p) => pileSlots(c, p));
     piles = laid.map((l) => ({ height: l.height, empty: l.empty }));
     const wanted = {};

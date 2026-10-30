@@ -60,6 +60,7 @@ const jsonld = [{
           <ul>
             <li>Seguridad Social del trabajador: {pct(ssTotal)} de la base con contrato indefinido ({pct(SS.comunes)} contingencias comunes, {pct(SS.desempleoIndefinido)} desempleo, {pct(SS.fp)} formación y {pct(SS.mei)} MEI), con una base máxima de {eur.format(SS.baseMax)} al mes y la cotización de solidaridad por encima.</li>
             <li>Retención de IRPF: el <a class="link" href={SRC.aeat} rel="noopener" target="_blank">algoritmo de retenciones de la AEAT para 2026</a>, versión del 10 de septiembre, con el tipo truncado a dos decimales como hace la Agencia.</li>
+            <li>Puedes dar el sueldo como bruto anual, como bruto de cada paga (por 12 o 14) o como lo que te llega al banco. Con el neto, buscamos el bruto anual que lo deja; si varios casi iguales dan el mismo neto, mostramos el redondo.</li>
             <li><strong>Por qué no pedimos tu comunidad autónoma:</strong> la retención de la nómina se calcula igual en toda España (salvo País Vasco y Navarra). Lo que pagas de IRPF al final sí depende de tu comunidad, y la diferencia se ajusta en la declaración de la renta. Por eso otras calculadoras que dan el impuesto anual por comunidad muestran netos algo distintos.</li>
           </ul>
 
@@ -115,6 +116,7 @@ const jsonld = [{
           <ul>
             <li>Seguretat Social del treballador: {pct(ssTotal)} de la base amb contracte indefinit ({pct(SS.comunes)} contingències comunes, {pct(SS.desempleoIndefinido)} atur, {pct(SS.fp)} formació i {pct(SS.mei)} MEI), amb una base màxima de {eur.format(SS.baseMax)} al mes i la cotització de solidaritat per sobre.</li>
             <li>Retenció d’IRPF: l’<a class="link" href={SRC.aeat} rel="noopener" target="_blank">algorisme de retencions de l’AEAT per al 2026</a>, versió del 10 de setembre, amb el tipus truncat a dos decimals com fa l’Agència.</li>
+            <li>Pots donar el sou com a brut anual, com a brut de cada paga (per 12 o 14) o com el que t’arriba al banc. Amb el net, busquem el brut anual que el deixa; si n’hi ha uns quants de gairebé iguals que donen el mateix net, mostrem el rodó.</li>
             <li><strong>Per què no et demanem la comunitat autònoma:</strong> la retenció de la nòmina es calcula igual a tot Espanya (excepte al País Basc i a Navarra). El que pagues d’IRPF al final sí que depèn de la comunitat, i la diferència s’ajusta a la declaració de la renda. Per això altres calculadores que donen l’impost anual per comunitat mostren nets una mica diferents.</li>
           </ul>
 

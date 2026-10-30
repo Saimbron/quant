@@ -289,6 +289,8 @@ details.more .stepper output { background: var(--night); }
 
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .fineprint { font-size: 1rem; color: var(--night-muted); max-width: 52ch; }
+.hint { font-size: 0.875rem; line-height: 1.4; color: var(--night-muted); }
+.hint .link { color: var(--night-ink); }
 
 /* ---------- Document fragment (paper) ---------- */
 .doc-col { position: relative; }
@@ -706,7 +708,7 @@ details.more .stepper output { background: var(--night); }
 .has-coins .coins-box { opacity: 1; }
 .coins { width: 100%; height: 100%; display: block; }
 .coins-legend {
-  position: absolute; left: 132px; top: 0;
+  position: absolute; left: 132px; top: -40px;
   display: grid; gap: 8px; justify-items: start;
   font-size: 0.8125rem; font-weight: 500; color: #ffffff;
 }
@@ -727,6 +729,8 @@ details.more .stepper output { background: var(--night); }
 .pile-pin.is-on { opacity: 1; }
 @media (min-width: 1024px) {
   .has-coins .doc-stage { max-width: 560px; }
+  /* The money stands on the paper's corner: the note above it stops short */
+  .has-coins .doc-foot .doc-note { margin-right: 100px; }
 }
 @media (max-width: 1023px) {
   .coins-box { top: 0; bottom: auto; right: 0; width: 58%; height: 240px; }

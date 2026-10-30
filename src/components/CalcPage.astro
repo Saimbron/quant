@@ -61,6 +61,13 @@ const compareRows = calc === 'comparar'
     .map((b) => ({ b, ...asalariadoOAutonomo({ bruto: b, gastos: DEFAULTS.comparar.gastos }) }))
   : [];
 const pct1 = makeFormat(t.locale).pct;
+
+// The three ways to give a salary, each with its own slider range
+const entradas = calc === 'sueldo' ? {
+  anual: { label: c.fields.brutoLabels.anual, hint: c.fields.hints.anual, min: 12000, max: 120000, step: 500 },
+  mes: { label: c.fields.brutoLabels.mes, hint: c.fields.hints.mes, min: 800, max: 9000, step: 50 },
+  neto: { label: c.fields.brutoLabels.neto, hint: c.fields.hints.neto, min: 700, max: 7000, step: 25 },
+} : null;
 ---
 <Base lang={lang} title={c.title} description={c.description} path={path} alternates={alternates} jsonld={jsonld}>
   <a class="skip" href="#calc">{t.skip}</a>
@@ -80,10 +87,17 @@ const pct1 = makeFormat(t.locale).pct;
           <form class="calc" id="calc" data-rise style="--i:1" onsubmit="return false" novalidate>
             {calc === 'sueldo' && (
               <>
-                <div class="field">
-                  <label for="f-bruto">{c.fields.bruto}</label>
+                <fieldset class="field">
+                  <legend>{c.fields.entrada}</legend>
+                  <div class="segmented">
+                    {Object.entries(c.fields.entradas).map(([k, v]) => <label><input type="radio" name="entrada" value={k} checked={k === s.entrada} /><span>{v}</span></label>)}
+                  </div>
+                </fieldset>
+                <div class="field" data-entrada={JSON.stringify(entradas)}>
+                  <label for="f-bruto" data-entrada-label>{entradas.anual.label}</label>
                   <div class="money"><input id="f-bruto" name="bruto" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.bruto)} data-money /><span>€</span></div>
-                  <input type="range" aria-label={c.fields.bruto} min="12000" max="120000" step="500" value={s.bruto} data-sync="bruto" />
+                  <input type="range" aria-label={entradas.anual.label} min="12000" max="120000" step="500" value={s.bruto} data-sync="bruto" />
+                  <p class="hint" data-entrada-hint>{entradas.anual.hint}</p>
                 </div>
                 <fieldset class="field">
                   <legend>{c.fields.pagas}</legend>
@@ -140,6 +154,7 @@ const pct1 = makeFormat(t.locale).pct;
                   <label for="f-bruto">{c.fields.bruto}</label>
                   <div class="money"><input id="f-bruto" name="bruto" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.bruto)} data-money /><span>€</span></div>
                   <input type="range" aria-label={c.fields.bruto} min="12000" max="120000" step="500" value={s.bruto} data-sync="bruto" />
+                  <p class="hint">{t.brutoHint[0]} <a class="link" href={withBase(ROUTES[lang].sueldo)}>{t.brutoHint[1]}</a>.</p>
                 </div>
                 <div class="dates">
                   <div class="field">
@@ -182,6 +197,7 @@ const pct1 = makeFormat(t.locale).pct;
                   <label for="f-bruto">{c.fields.bruto}</label>
                   <div class="money"><input id="f-bruto" name="bruto" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.bruto)} data-money /><span>€</span></div>
                   <input type="range" aria-label={c.fields.bruto} min="12000" max="80000" step="500" value={s.bruto} data-sync="bruto" />
+                  <p class="hint">{t.brutoHint[0]} <a class="link" href={withBase(ROUTES[lang].sueldo)}>{t.brutoHint[1]}</a>.</p>
                 </div>
                 <div class="field">
                   <label id="l-meses">{c.fields.meses}</label>
@@ -207,6 +223,7 @@ const pct1 = makeFormat(t.locale).pct;
                   <label for="f-bruto">{c.fields.bruto}</label>
                   <div class="money"><input id="f-bruto" name="bruto" inputmode="decimal" autocomplete="off" spellcheck="false" value={fmt.format(s.bruto)} data-money /><span>€</span></div>
                   <input type="range" aria-label={c.fields.bruto} min="15000" max="120000" step="500" value={s.bruto} data-sync="bruto" />
+                  <p class="hint">{t.brutoHint[0]} <a class="link" href={withBase(ROUTES[lang].sueldo)}>{t.brutoHint[1]}</a>.</p>
                 </div>
                 <div class="field">
                   <label for="f-gastos">{c.fields.gastos}</label>
@@ -332,9 +349,11 @@ const pct1 = makeFormat(t.locale).pct;
                   <div class="doc-row is-strong"><span>{c.doc.total}</span><span class="pct"></span><span class="amt" data-out="total">{r.out.total}</span></div>
                 </div>
                 <footer class="doc-foot">
-                  <span class="label">{c.doc.liquido}</span>
+                  <span class="label" data-out="footLabel">{c.doc.liquido}</span>
                   <p class="doc-total" data-result><span class="sr-only" data-result-text>{eur2.format(r.result)}{resultUnit}</span><span class="roll" aria-hidden="true" data-roll>{big.int}<small>{big.dec} €</small></span></p>
                   <div class="doc-sub">
+                    <span data-when="liquidoSub" hidden>{c.doc.liquido}: <b data-out="liquidoSub">{r.out.liquidoSub}</b></span>
+                    <span data-when="brutoSub" hidden>{c.doc.brutoAnualSub}: <b data-out="brutoSub">{r.out.brutoSub}</b></span>
                     <span data-when="extra">{c.doc.extra}: <b data-out="extra">{r.out.extra}</b></span>
                     <span>{c.doc.anual}: <b data-out="anual">{r.out.anual}</b></span>
                   </div>
@@ -540,7 +559,7 @@ const pct1 = makeFormat(t.locale).pct;
                     <span><span class="sr-only">{c.table.cols[1]}: </span>{eur2.format(row.netoMes)}</span>
                     <span class="soft"><span class="sr-only">{c.table.cols[2]}: </span>{row.tipoIRPF.toLocaleString(t.locale, { minimumFractionDigits: 2 })} %</span>
                     <span class="soft"><span class="sr-only">{c.table.cols[3]}: </span>{eur.format(row.netoAnual)}</span>
-                    <button type="button" data-use={use({ bruto: row.b, pagas: String(pagas), contrato: 'indefinido', hijos: 0, menores3: 0, situacion: '3', compartidos: true })} aria-label={`${c.table.use}: ${eur.format(row.b)}, ${pagas}`}>{c.table.use}</button>
+                    <button type="button" data-use={use({ entrada: 'anual', bruto: row.b, pagas: String(pagas), contrato: 'indefinido', hijos: 0, menores3: 0, situacion: '3', compartidos: true })} aria-label={`${c.table.use}: ${eur.format(row.b)}, ${pagas}`}>{c.table.use}</button>
                   </div>
                 ))}
               </div>
@@ -668,7 +687,7 @@ const pct1 = makeFormat(t.locale).pct;
   <Footer lang={lang} />
 
   <div class="dock" data-dock aria-hidden="true" inert>
-    <div><span>{c.resultLabel}</span><br /><strong data-dock-value>{eur2.format(r.result)}{resultUnit}</strong></div>
+    <div><span data-dock-label>{c.resultLabel}</span><br /><strong data-dock-value>{eur2.format(r.result)}{resultUnit}</strong></div>
     <a href="#calc">{lang === 'ca' ? 'Canvia les dades' : 'Cambiar datos'}</a>
   </div>
   <div class="toast" role="status" aria-live="polite" data-toast></div>

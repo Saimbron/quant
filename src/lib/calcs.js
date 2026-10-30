@@ -1,8 +1,8 @@
-import { sueldoNeto, cuotaAutonomo, factura, precioHora, finiquito, prestacionParo, asalariadoOAutonomo, TIPO_AUTONOMOS } from './tax.js';
+import { sueldoNeto, brutoDesdeNeto, cuotaAutonomo, factura, precioHora, finiquito, prestacionParo, asalariadoOAutonomo, TIPO_AUTONOMOS } from './tax.js';
 import { T } from './i18n.js';
 
 export const DEFAULTS = {
-  sueldo: { bruto: 30000, pagas: 14, contrato: 'indefinido', hijos: 0, menores3: 0, compartidos: true, situacion: 3 },
+  sueldo: { entrada: 'anual', bruto: 30000, pagas: 14, contrato: 'indefinido', hijos: 0, menores3: 0, compartidos: true, situacion: 3 },
   finiquito: { bruto: 28000, alta: '2021-03-01', baja: '2026-10-31', motivo: 'improcedente', pagas: 14, vacaciones: 15 },
   paro: { bruto: 24000, meses: 36, hijos: 0 },
   autonomos: { ingresos: 2500, gastos: 400, tarifaPlana: false, societario: false },
@@ -28,7 +28,8 @@ export function makeFormat(locale) {
   };
 }
 
-const unitsFor = (locale) => T[locale.startsWith('ca') ? 'ca' : 'es'].units;
+const textsFor = (locale) => T[locale.startsWith('ca') ? 'ca' : 'es'];
+const unitsFor = (locale) => textsFor(locale).units;
 
 // Big number split for display: integer part and cents
 export function split(n, locale) {
@@ -41,14 +42,23 @@ export function split(n, locale) {
 export function compute(calc, s, locale) {
   const f = makeFormat(locale);
   if (calc === 'sueldo') {
-    const r = sueldoNeto({
-      bruto: s.bruto, pagas: +s.pagas, temporal: s.contrato === 'temporal',
+    const L = textsFor(locale).sueldo;
+    const opts = {
+      pagas: +s.pagas === 12 ? 12 : 14, temporal: s.contrato === 'temporal',
       hijos: +s.hijos, menores3: +s.menores3, compartidos: !!s.compartidos, situacion: +s.situacion,
-    });
+    };
+    // The salary can come as the yearly gross, the gross of one payslip or what reaches the bank
+    const entrada = s.entrada === 'mes' || s.entrada === 'neto' ? s.entrada : 'anual';
+    const bruto = entrada === 'mes' ? (+s.bruto || 0) * opts.pagas : entrada === 'neto' ? brutoDesdeNeto(s.bruto, opts) : s.bruto;
+    const r = sueldoNeto({ ...opts, bruto });
     const deducciones = r.ssMes + r.irpfPaga;
+    const fromNet = entrada === 'neto';
     return {
       raw: r,
-      result: r.netoMes,
+      // Whoever starts from the net wants to learn the gross
+      result: fromNet ? r.bruto : r.netoMes,
+      label: fromNet ? L.resultLabelBruto : L.resultLabel,
+      when: { liquidoSub: fromNet, brutoSub: entrada === 'mes' },
       coins: [r.netoMes, r.irpfPaga, r.ssMes],
       out: {
         salario: f.eur(r.brutoPaga),
@@ -64,6 +74,9 @@ export function compute(calc, s, locale) {
         extra: r.netoExtra != null ? f.eur(r.netoExtra) : '—',
         anual: f.eur(r.netoAnual),
         dias: String(r.diasHacienda),
+        footLabel: fromNet ? L.doc.brutoAnual : L.doc.liquido,
+        liquidoSub: f.eur(r.netoMes),
+        brutoSub: f.eur(r.bruto),
       },
       stages: {
         vars: {

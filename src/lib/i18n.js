@@ -43,6 +43,7 @@ const es = {
   nav: { sueldo: 'Sueldo neto', finiquito: 'Finiquito', paro: 'Paro', autonomos: 'Autónomos', factura: 'Factura', hora: 'Precio hora', comparar: 'Comparar' },
   navSub: { sueldo: 'Nómina', finiquito: 'Despido y baja', paro: 'Prestación', autonomos: 'Cuota mensual', factura: 'IVA e IRPF', hora: 'Freelance', comparar: 'Nómina o facturas' },
   per: { mes: 'al mes', anio: 'al año', hora: 'la hora', dia: 'el día' },
+  brutoHint: ['¿No sabes tu bruto anual? Lo pone tu contrato. Si solo sabes lo que cobras al mes,', 'calcúlalo aquí'],
   units: { days: 'días', year: 'año', years: 'años', month: 'mes', months: 'meses', and: 'y', perYear: 'días/año', mixed: '45 y 33 días/año', pagas: 'pagas' },
   footer: {
     statement: 'Las cuentas que hace cada persona que trabaja en España, resueltas en segundos y sin registrarte.',
@@ -58,10 +59,18 @@ const es = {
   },
   sueldo: {
     title: 'Calculadora de sueldo neto 2026: de bruto a neto',
-    description: 'Calcula tu sueldo neto mensual en 2026 a partir del bruto anual: Seguridad Social, retención de IRPF, 12 o 14 pagas. Gratis y al momento.',
+    description: 'Calcula tu sueldo neto en 2026 desde el bruto anual o el de la nómina, o al revés, de lo que cobras al mes a tu bruto: Seguridad Social, IRPF, 12 o 14 pagas.',
     h1: ['Sueldo neto', 'en 2026'],
-    lead: 'Escribe tu sueldo bruto anual y ve tu nómina línea a línea, con la retención de IRPF y las cotizaciones de 2026.',
+    lead: 'Pon tu sueldo como lo sepas, bruto al año, bruto al mes o lo que te llega al banco, y ve tu nómina línea a línea con el IRPF y las cotizaciones de 2026.',
     fields: {
+      entrada: 'Lo que sabes de tu sueldo',
+      entradas: { anual: 'Bruto al año', mes: 'Bruto al mes', neto: 'Neto al mes' },
+      brutoLabels: { anual: 'Sueldo bruto anual', mes: 'Sueldo bruto de cada paga', neto: 'Lo que cobras al mes (neto)' },
+      hints: {
+        anual: 'Lo que pone tu contrato o tu oferta de trabajo, antes de impuestos.',
+        mes: 'El «total devengado» de una nómina normal, sin la paga extra.',
+        neto: 'Lo que te llega al banco un mes normal, sin la paga extra.',
+      },
       bruto: 'Sueldo bruto anual',
       pagas: 'Pagas',
       contrato: 'Contrato',
@@ -91,9 +100,12 @@ const es = {
       liquido: 'Líquido a percibir',
       extra: 'Paga extra (junio y diciembre)',
       anual: 'Neto al año',
+      brutoAnual: 'Tu sueldo bruto anual',
+      brutoAnualSub: 'Bruto al año',
       region: 'La retención es igual en toda España. Lo que pagas al final depende de tu comunidad autónoma y se ajusta en la renta.',
     },
     resultLabel: 'Neto al mes',
+    resultLabelBruto: 'Bruto al año',
     stages: {
       heading: 'Del bruto al neto',
       names: ['Bruto', 'Seguridad Social', 'IRPF', 'Neto'],
@@ -128,6 +140,7 @@ const es = {
     },
     faq: [
       ['¿Qué es el sueldo neto?', 'Es lo que cobras de verdad: tu sueldo bruto menos las cotizaciones a la Seguridad Social y la retención de IRPF. En la nómina aparece como «líquido a percibir».'],
+      ['¿Y si solo sé lo que cobro al mes?', 'Elige «Neto al mes» y pon lo que te llega al banco un mes normal, sin la paga extra. La calculadora busca el sueldo bruto anual que deja ese neto con tus pagas y tu situación familiar. Si tienes la nómina a mano, elige «Bruto al mes» y pon el total devengado.'],
       ['¿Cuánto se paga a la Seguridad Social en 2026?', 'Un 6,50 % de tu base con contrato indefinido: 4,70 % de contingencias comunes, 1,55 % de desempleo, 0,10 % de formación profesional y 0,15 % de MEI. Con contrato temporal el desempleo sube al 1,60 %. La base tiene un tope de 5.101,20 € al mes; por encima, pagas una pequeña cotización de solidaridad (entre el 0,19 % y el 0,24 % del exceso).'],
       ['¿Cómo se calcula la retención de IRPF?', 'Se aplica el algoritmo oficial de la Agencia Tributaria: al bruto se le restan las cotizaciones, 2.000 € de gastos y la reducción por rendimientos del trabajo; se aplica la escala y se descuenta tu mínimo personal y familiar. Por debajo de unos 15.876 € al año no hay retención.'],
       ['¿Es mejor cobrar en 12 o en 14 pagas?', 'Al año cobras lo mismo. Con 14 pagas cada mes es algo menor, pero en junio y diciembre recibes una paga extra sin cotización a la Seguridad Social, porque ya está prorrateada en los otros meses.'],
@@ -513,6 +526,7 @@ const es = {
     link: 'Cómo calculamos',
     changelog: 'Registro de cambios',
     changes: [
+      ['2026-10-30', 'El sueldo neto se puede calcular desde el bruto anual, el bruto de la nómina o lo que llega al banco cada mes.'],
       ['2026-10-21', 'Las monedas de cada calculadora pasan a ser billetes y monedas de euro con la cantidad exacta de cada resultado, hasta el céntimo.'],
       ['2026-10-21', 'Página de metodología y aviso sobre la retención por comunidad autónoma en el sueldo neto.'],
       ['2026-10-20', 'Nuevas calculadoras de finiquito, paro y asalariado o autónomo, con la LGSS y el Estatuto de los Trabajadores vigentes.'],
@@ -543,6 +557,7 @@ const ca = {
   nav: { sueldo: 'Sou net', finiquito: 'Quitança', paro: 'Atur', autonomos: 'Autònoms', factura: 'Factura', hora: 'Preu hora', comparar: 'Comparar' },
   navSub: { sueldo: 'Nòmina', finiquito: 'Acomiadament i baixa', paro: 'Prestació', autonomos: 'Quota mensual', factura: 'IVA i IRPF', hora: 'Freelance', comparar: 'Nòmina o factures' },
   per: { mes: 'al mes', anio: 'l’any', hora: 'l’hora', dia: 'el dia' },
+  brutoHint: ['No saps el teu brut anual? Ho diu el contracte. Si només saps el que cobres al mes,', 'calcula’l aquí'],
   units: { days: 'dies', year: 'any', years: 'anys', month: 'mes', months: 'mesos', and: 'i', perYear: 'dies/any', mixed: '45 i 33 dies/any', pagas: 'pagues' },
   footer: {
     statement: 'Els comptes que fa tothom qui treballa a Espanya, resolts en segons i sense registrar-te.',
@@ -558,10 +573,18 @@ const ca = {
   },
   sueldo: {
     title: 'Calculadora de sou net 2026: de brut a net',
-    description: 'Calcula el teu sou net mensual el 2026 a partir del brut anual: Seguretat Social, retenció d’IRPF, 12 o 14 pagues. Gratis i a l’instant.',
+    description: 'Calcula el teu sou net el 2026 des del brut anual o el de la nòmina, o a l’inrevés, del que cobres al mes al teu brut: Seguretat Social, IRPF, 12 o 14 pagues.',
     h1: ['Sou net', 'el 2026'],
-    lead: 'Escriu el teu sou brut anual i mira la nòmina línia a línia, amb la retenció d’IRPF i les cotitzacions del 2026.',
+    lead: 'Posa el teu sou com el sàpigues, brut a l’any, brut al mes o el que t’arriba al banc, i mira la nòmina línia a línia amb l’IRPF i les cotitzacions del 2026.',
     fields: {
+      entrada: 'El que saps del teu sou',
+      entradas: { anual: 'Brut a l’any', mes: 'Brut al mes', neto: 'Net al mes' },
+      brutoLabels: { anual: 'Sou brut anual', mes: 'Sou brut de cada paga', neto: 'El que cobres al mes (net)' },
+      hints: {
+        anual: 'El que diu el teu contracte o l’oferta de feina, abans d’impostos.',
+        mes: 'El «total meritat» d’una nòmina normal, sense la paga extra.',
+        neto: 'El que t’arriba al banc un mes normal, sense la paga extra.',
+      },
       bruto: 'Sou brut anual',
       pagas: 'Pagues',
       contrato: 'Contracte',
@@ -591,9 +614,12 @@ const ca = {
       liquido: 'Líquid a percebre',
       extra: 'Paga extra (juny i desembre)',
       anual: 'Net a l’any',
+      brutoAnual: 'El teu sou brut anual',
+      brutoAnualSub: 'Brut a l’any',
       region: 'La retenció és igual a tot Espanya. El que pagues al final depèn de la comunitat autònoma i s’ajusta a la renda.',
     },
     resultLabel: 'Net al mes',
+    resultLabelBruto: 'Brut a l’any',
     stages: {
       heading: 'Del brut al net',
       names: ['Brut', 'Seguretat Social', 'IRPF', 'Net'],
@@ -628,6 +654,7 @@ const ca = {
     },
     faq: [
       ['Què és el sou net?', 'És el que cobres de veritat: el sou brut menys les cotitzacions a la Seguretat Social i la retenció d’IRPF. A la nòmina hi surt com a «líquid a percebre».'],
+      ['I si només sé el que cobro al mes?', 'Tria «Net al mes» i posa el que t’arriba al banc un mes normal, sense la paga extra. La calculadora busca el sou brut anual que deixa aquest net amb les teves pagues i la teva situació familiar. Si tens la nòmina a mà, tria «Brut al mes» i posa el total meritat.'],
       ['Quant es paga a la Seguretat Social el 2026?', 'Un 6,50 % de la base amb contracte indefinit: 4,70 % de contingències comunes, 1,55 % d’atur, 0,10 % de formació professional i 0,15 % de MEI. Amb contracte temporal l’atur puja a l’1,60 %. La base té un límit de 5.101,20 € al mes; per sobre, pagues una petita cotització de solidaritat (entre el 0,19 % i el 0,24 % de l’excés).'],
       ['Com es calcula la retenció d’IRPF?', 'S’aplica l’algorisme oficial de l’Agència Tributària: al brut se li resten les cotitzacions, 2.000 € de despeses i la reducció per rendiments del treball; s’aplica l’escala i es descompta el mínim personal i familiar. Per sota d’uns 15.876 € l’any no hi ha retenció.'],
       ['És millor cobrar en 12 o en 14 pagues?', 'A l’any cobres el mateix. Amb 14 pagues cada mes és una mica menys, però al juny i al desembre reps una paga extra sense cotització a la Seguretat Social, perquè ja està prorratejada en els altres mesos.'],
@@ -1013,6 +1040,7 @@ const ca = {
     link: 'Com calculem',
     changelog: 'Registre de canvis',
     changes: [
+      ['2026-10-30', 'El sou net es pot calcular des del brut anual, el brut de la nòmina o el que arriba al banc cada mes.'],
       ['2026-10-21', 'Les monedes de cada calculadora passen a ser bitllets i monedes d’euro amb la quantitat exacta de cada resultat, fins al cèntim.'],
       ['2026-10-21', 'Pàgina de metodologia i avís sobre la retenció per comunitat autònoma al sou net.'],
       ['2026-10-20', 'Noves calculadores de quitança, atur i assalariat o autònom, amb la LGSS i l’Estatut dels Treballadors vigents.'],
